@@ -77,10 +77,3 @@ void make_opcode_output(uchar *file_name);
 void make_symtab_output(uchar *file_name);
 static int assem_pass2(void);
 void make_objectcode_output(uchar *file_name);
-
-typedef struct OperationCodeTable {	// OP 테이블의 각각의 레코드 구조체
-	char Mnemonic[LABEL_LENGTH];	// 명령어의 형상 (ex. LDB, LDA, etc...)
-	char Format;	// 명령어의 형식 (명령어의 길이)	3/4 형식은 편의상 3형식으로 표현하도록 설계했습니다.
-	unsigned short int  ManchineCode;	// 해당 명령어의 목적 코드
-}SIC_OPTAB;
-
