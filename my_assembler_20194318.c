@@ -16,3 +16,7 @@ void make_opcode_output(uchar *file_name);
 void make_symtab_output(uchar *file_name);
 static int assem_pass2(void);
 void make_objectcode_output(uchar *file_name);
+
+int main(){
+    printf("hello world");
+}
