@@ -236,7 +236,7 @@ int main()
                                         case 5 : strcat(mncode,"_");
                                                   break;
                                     }
-                                    strcat(mncode,target);
+                                    strcat(mncode, target);
                                 }
                             }
                             rewind(f2);
