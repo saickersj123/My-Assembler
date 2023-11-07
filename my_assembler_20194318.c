@@ -1,24 +1,38 @@
 #include <stdio.h>
 #include <stdlib.h>	
-#include <string.h>	// 문자열 관리를 위함
-#include <malloc.h>	// 동적할당을 위함
-#include ".\my_assembler_20194318.h"
+#include <string.h>
+#include <malloc.h>
+#include "my_assembler_20194318.h"
 
-int init_my_assembler(void);
-int init_inst_file(uchar *inst_file);
-int init_input_file(uchar *input_file){
-    FILE *ptr;
-    ptr = fopen("input.txt","r");
-    if(ptr == NULL ){
-        printf("Cannot Open Input!\n");
-    }
-    while(!feof(ptr)){
-        line_num = 0;
-        fgets(input_file,MAX_LINES, ptr);
-        line_num++;
-    }
-    printf("%d %s\n",line_num, input_data);
+int init_my_assembler(void){
+    init_inst_file("inst.data");
+    init_input_file("input.txt");
+    
 }
+
+int init_inst_file(uchar *inst_file){
+    FILE *inst = fopen(inst_file, "r");
+    inst_index = 0;
+    int i;
+    while(!feof(inst)){
+        fgets(inst_table, sizeof(inst_table),inst);
+        inst_index++;
+        printf("[%d]번째 줄 : %s", inst_index, inst_table);
+    }
+    fclose(inst);
+}
+int init_input_file(uchar *input_file){
+    FILE *inp = fopen(input_file,"r");
+    line_num = 0;
+    while(!feof(inp)){
+        fgets(input_data, sizeof(input_data),inp);
+        line_num++;
+        printf("[%d]번째 줄 : %s", line_num, input_data);
+
+    }
+    fclose(inp);
+}
+
 int token_parsing(uchar *str);
 int search_opcode(uchar *str);
 static int assem_pass1(void);
@@ -29,6 +43,5 @@ static int assem_pass2(void);
 void make_objectcode_output(uchar *file_name);
 
 int main(){
-    uchar input_file;
-    init_input_file(input_file);
+    init_my_assembler();
 }

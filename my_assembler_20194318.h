@@ -15,10 +15,10 @@ typedef unsigned char uchar;
 struct inst_unit
 {
 	uchar str[10];
-	uchar op;
+	int ops; 	//	0:-		1:M		2:R		3:N		4:RR	5:RN
 	int format; // 0:not SIC/XE code	1:format 1	2:format 2		3:format 3/4
-	int ops; //	0:-		1:M		2:R		3:N		4:RR	5:RN
-}; // inst.data ╦егн
+	uchar op;
+};
 typedef struct inst_unit inst;
 inst *inst_table[MAX_INST];
 int inst_index;
