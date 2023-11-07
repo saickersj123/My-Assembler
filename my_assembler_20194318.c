@@ -7,7 +7,6 @@
 int init_my_assembler(void){
     init_inst_file("inst.data");
     init_input_file("input.txt");
-    
 }
 
 int init_inst_file(uchar *inst_file){
@@ -15,9 +14,9 @@ int init_inst_file(uchar *inst_file){
     inst_index = 0;
     int i;
     while(!feof(inst)){
-        fgets(inst_table, sizeof(inst_table),inst);
+        fgets(inst_table, sizeof(inst_table)-1,inst);
         inst_index++;
-        printf("[%d]번째 줄 : %s", inst_index, inst_table);
+        printf("Inst Line [%d] : %s", inst_index, inst_table);
     }
     fclose(inst);
 }
@@ -25,9 +24,9 @@ int init_input_file(uchar *input_file){
     FILE *inp = fopen(input_file,"r");
     line_num = 0;
     while(!feof(inp)){
-        fgets(input_data, sizeof(input_data),inp);
+        fgets(input_data, sizeof(input_data)-1,inp);
         line_num++;
-        printf("[%d]번째 줄 : %s", line_num, input_data);
+        printf("\nInput Line [%d] : %s", line_num, input_data);
 
     }
     fclose(inp);
