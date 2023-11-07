@@ -1,0 +1,12 @@
+CC=gcc
+TARGET=20171672.out
+OBJECT=20171672.o
+
+$(TARGET) : $(OBJECT)
+	$(CC) -o $(TARGET) 20171672.o
+
+20171672.o : 20171672.c
+	$(CC) -c -o 20171672.o 20171672.c
+
+clean:
+	rm $(OBJECT) $(TARGET)
