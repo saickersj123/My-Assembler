@@ -72,7 +72,7 @@ int init_my_assembler(void); // input inst.dat init 초기화 함수 호출
 int init_inst_file(uchar *inst_file); //inst.dat
 int init_input_file(uchar *input_file); //intput.txt
 int token_parsing(uchar *str); //input.txt 를 토큰(블럭) 나누기
-int search_opcode(uchar *str); //매핑된 inst.data로 input.txt의 op코드들을 검색
+int search_opcode(uchar *str); 
 static int assem_pass1(void); //위 과정들을 호출
 void make_opcode_output(uchar *file_name); //optable생성 매핑된 inst.data
 void make_symtab_output(uchar *file_name); // 레이블 + LOC 값으로 심볼테이블 생성
