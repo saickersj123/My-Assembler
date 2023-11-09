@@ -75,7 +75,6 @@ int token_parsing(uchar *str); //input.txt 를 토큰(블럭) 나누기
 int search_opcode(uchar *str); //매핑된 inst.data로 input.txt의 op코드들을 검색
 static int assem_pass1(void); //위 과정들을 호출
 void make_opcode_output(uchar *file_name); //optable생성 매핑된 inst.data
-
 void make_symtab_output(uchar *file_name); // 레이블 + LOC 값으로 심볼테이블 생성
 static int assem_pass2(void); // FROM PASS 1 (OPTABLE SYMBLE 둘다 참조) 계산
 void make_objectcode_output(uchar *file_name); // 최종 OUTPUT 오브젝트파일 생성

@@ -11,12 +11,23 @@ int init_my_assembler(void){
 int init_inst_file(uchar *inst_file){
     FILE *inst = fopen(inst_file, "r");
     inst_index = 0;
+    uchar buffer[sizeof(inst_table)];
     int i;
     printf("Instruction File Initialized\n");
     while(!feof(inst)){
-        fgets(inst_table, sizeof(inst_table),inst);
+
+        fgets(buffer, sizeof(buffer),inst);
+        uchar *tmp = strtok(buffer, " ");
+        strcpy(inst_table[inst_index]->str, tmp);
+        tmp = strtok(buffer," ");
+        strcpy(inst_table[inst_index]->ops,tmp);
+        tmp = strtok(buffer," ");
+        strcpy(inst_table[inst_index]->format,tmp);
+        tmp = strtok(NULL,"\n");
+        strcpy(inst_table[inst_index]->op,tmp);
         inst_index++;
-        printf("Inst Line [%d] : %s", inst_index, inst_table);
+        printf("Inst Line [%d] : %s %d %d %s", inst_index, inst_table[inst_index]->str, inst_table[inst_index]->ops, inst_table[inst_index]->format, inst_table[inst_index]->op);
+        
     }
     printf("\n");
     fclose(inst);
@@ -36,23 +47,28 @@ int init_input_file(uchar *input_file){
     fclose(inp);
 }
 
-int token_parsing(uchar *str)
+/*int token_parsing(uchar *str)
 {
-    int i;
-    uchar cpy[MAX_LINES];
-    while(input_data == EOF ){
-            const char delim[] = " ";
-            str = strtok(input_data,delim);
-            fgets(token_table,sizeof(token_table),str);
-            printf("%s\n",token_table);
+    uchar *temp = NULL;
+    str = strtok_s(input_data, " ",&temp);
+    while(str != NULL){
+        str = strtok_s(NULL, " ", &temp);
+        strcpy(token_table , str);
+    
+    if(str == "."){
+        //건너뛰기 Skip the line
+        }
     }
-}
+    if(str == NULL){
+
+    }
+}*/
 
 int search_opcode(uchar *str);
-static int assem_pass1(void);
+static int assem_pass1(void);//search opcode, opcode output, symtab output
 void make_opcode_output(uchar *file_name);
-
 void make_symtab_output(uchar *file_name);
+
 static int assem_pass2(void);
 void make_objectcode_output(uchar *file_name);
 
