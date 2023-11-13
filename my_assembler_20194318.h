@@ -15,7 +15,7 @@ typedef unsigned char uchar;
 struct inst_unit
 {
 	uchar str[10];
-	int ops; 	//	0:-		1:M		2:R		3:N		4:RR	5:RN
+	int ops; //	0:-		1:M		2:R		3:N		4:RR	5:RN
 	int format; // 0:not SIC/XE code	1:format 1	2:format 2		3:format 3/4
 	uchar op;
 };
@@ -43,7 +43,7 @@ struct token_unit
 	// 다음과제에 사용될 변수
 	// uchar nixbpe;
 };
-//input.txt 매핑
+
 
 typedef struct token_unit token;
 token *token_table[MAX_LINES];
@@ -59,22 +59,45 @@ struct symbol_unit
 	uchar symbol[10];
 	int addr;
 };
-//symbol table 생성 후 매핑
+
 typedef struct symbol_unit symbol;
 symbol sym_table[MAX_LINES];
 
-static int locctr; //symtable 들어갈 loc값 
+static int locctr; // loc값 
 //--------------
 
-static uchar *input_file; //fopen(input.txt)
-static uchar *output_file;//fopen(output.txt object file)
-int init_my_assembler(void); // input inst.dat init 초기화 함수 호출
-int init_inst_file(uchar *inst_file); //inst.dat
-int init_input_file(uchar *input_file); //intput.txt
-int token_parsing(uchar *str); //input.txt 를 토큰(블럭) 나누기
-int search_opcode(uchar *str); 
-static int assem_pass1(void); //위 과정들을 호출
-void make_opcode_output(uchar *file_name); //optable생성 매핑된 inst.data
-void make_symtab_output(uchar *file_name); // 레이블 + LOC 값으로 심볼테이블 생성
-static int assem_pass2(void); // FROM PASS 1 (OPTABLE SYMBLE 둘다 참조) 계산
-void make_objectcode_output(uchar *file_name); // 최종 OUTPUT 오브젝트파일 생성
+static uchar *input_file; // 입력 파일 input.txt
+static uchar *output_file;// 출력 파일 output.txt
+int init_my_assembler(void); // 어셈블러 초기화 파일 init_inst_file()과 init_input_file()도 포함
+int init_inst_file(uchar *inst_file); //inst.data를 읽고 inst_table[]에 저장
+int init_input_file(uchar *input_file); //intput.txt를 읽고 input_data[]에 저장
+int token_parsing(uchar *str); //input_data[]에 저장된 명령어를 토큰화하여 token_table[]에 저장
+int search_opcode(uchar *str); //input_data[]에 저장된 명령어의 opcode를 검색 inst_table[]을 참조
+static int assem_pass1(void); //SIC/XE Pass1 make_opcode_output과 make_symtab_output을 포함
+void make_opcode_output(uchar *file_name); /*Contain the mnemonic operation code & its machine language 
+equivalent.
+- May also contain information about instruction format and length
+- Used to look up & validate mnemonic operation codes (Pass 1)
+and translate them to machine language (Pass 2) 
+- In SIC, both processes could be done together
+- In SIC/XE, search OPTAB to find the instruction length (Pass 1), 
+determine instruction format to use in assembling the instruction (Pass 2)
+- Usually organized as a hash table & a static table
+- Mnemonic operation code as a key
+- Provide fast retrieval with a minimum searching
+- A static table in most cases
+- Entries are not normally added to or deleted from it
+*/
+void make_symtab_output(uchar *file_name); /*- Used to store values (addresses) assigned to labels
+- Contain the name and value (addresses) for each label, 
+together with flags for error conditions, 
+also information about the data area or instruction labeled
+- for example, its the type or length
+- Pass 1 : labels are entered with their assigned (from LOCCTR)
+- Pass 2 : symbols are used to look up in SYMTAB to obtain the 
+addresses to be inserted
+- Usually organized as a hash table
+- For efficiency of insertion & retrieval
+- Heavily used throughout the assembly*/
+static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
+void make_objectcode_output(uchar *file_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성

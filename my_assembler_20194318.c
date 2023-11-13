@@ -4,46 +4,47 @@
 #include "my_assembler_20194318.h"
 
 int init_my_assembler(void){
-
-    if (init_inst_file("inst.data") != 0) {
+    // inst.data 파일로 명령어 초기화
+    if (init_inst_file("inst.data") == -1) {
+        fprintf(stderr, "Error: Instruction Initiation Failed\n");
         return -1;
     }
 
-    if (init_input_file("input.txt") != 0) {
+    // input.txt 파일로 소스 코드 초기화
+    if (init_input_file("input.txt") == -1) {
+        fprintf(stderr, "Error: Source Code Initiation Failed\n");
         return -1;
     }
 
-    return 0; 
+    return 0;
 }
 
 int init_inst_file(uchar *inst_file){
-    FILE *file = fopen(inst_file, "r");
-    inst_index = 0;
+     FILE *file = fopen(inst_file, "r");
+    
     if (file == NULL) {
         perror("Error opening inst.data file");
         return -1;
     }
-    int i;
-    for ( i = 0; i < MAX_INST; i++) {
-        inst_table[i] = (inst *)malloc(sizeof(inst));
-    }
 
-    printf("Instructions from inst.data:\n");
+    char line[50];  // Assuming each line in inst.data is not longer than 30 characters
 
-    while (fscanf(file, "%s %d %d %X", inst_table[inst_index]->str, 
-                                      &inst_table[inst_index]->ops, 
-                                      &inst_table[inst_index]->format, 
-                                      &inst_table[inst_index]->op) != EOF) {
-        printf("%s %d %d %X\n", inst_table[inst_index]->str, 
-                                 inst_table[inst_index]->ops, 
-                                 inst_table[inst_index]->format, 
-                                 inst_table[inst_index]->op);
-        inst_index++;
-
+    while (fgets(line, sizeof(line), file) != NULL) {
         if (inst_index >= MAX_INST) {
-            printf("Error: Maximum number of instructions reached.\n");
-            break;
+            fprintf(stderr, "Error: Maximum number of instructions reached.\n");
+            fclose(file);
+            return -1;
         }
+
+        inst_table[inst_index] = (inst *)malloc(sizeof(inst));
+
+        // Assuming the format of each line in inst.data is "str ops format op"
+        sscanf(line, "%s %d %d %02X", inst_table[inst_index]->str, &(inst_table[inst_index]->ops), &(inst_table[inst_index]->format), &(inst_table[inst_index]->op));
+
+        // Test print statement
+        printf("Instruction %d: %s %d %d %02X\n", inst_index + 1, inst_table[inst_index]->str, inst_table[inst_index]->ops, inst_table[inst_index]->format, inst_table[inst_index]->op);
+
+        inst_index++;
     }
 
     fclose(file);
@@ -51,187 +52,158 @@ int init_inst_file(uchar *inst_file){
 }
 
 int init_input_file(uchar *input_file){
-    FILE *file = fopen(input_file, "r");
-    int line_num = 0;
-
+  FILE *file = fopen(input_file, "r");
     if (file == NULL) {
-        perror("Error opening input.txt file");
-        return -1;
-    }
-	int i;
-    for ( i = 0; i < MAX_LINES; i++) {
-        input_data[i] = (uchar *)malloc(MAX_LINES); 
+        fprintf(stderr, "Error: Could not open input file '%s'\n", input_file);
+        return -1; // Error opening file
     }
 
-    while (fgets(input_data[line_num], MAX_LINES, file) != NULL) {
-        printf("Line %d: %s", line_num + 1, input_data[line_num]);
-        line_num++;
+    char line[100]; // Assuming the maximum length of a line in input.txt is 100 characters
 
+    while (fgets(line, sizeof(line), file) != NULL) {
         if (line_num >= MAX_LINES) {
-            printf("Error: Maximum number of lines reached.\n");
-            break;
+            fprintf(stderr, "Error: Maximum line limit reached\n");
+            fclose(file);
+            return -1; // Maximum line limit reached
         }
+
+        uchar *new_line = strdup(line);
+        if (new_line == NULL) {
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            fclose(file);
+            return -1; // Memory allocation failed
+        }
+
+        input_data[line_num++] = new_line;
+        
+        // Test print statement
+        printf("Line %d: %s", line_num, new_line);
+
+        
     }
 
-    printf("\n");
     fclose(file);
-    return 0;
+    return 0; // Successful initialization
 }
 
 int token_parsing(uchar *str) {
-    token_line = 0;  
-    token_table[token_line] = (token *)malloc(sizeof(token));
-
-    char *token_str = strtok(str, " \t\n");  
-
-    while (token_str != NULL) {
-        printf("Token: %s\n", token_str);
-
-        if (token_str != NULL && token_str[0] != '.') {
-            token_table[token_line]->label = strdup(token_str);
-            printf("Label: %s\n", token_table[token_line]->label);
-        } else {
-            token_table[token_line]->label = NULL;
-        }
-
-        token_str = strtok(NULL, " \t\n");
-
-        if (token_str != NULL) {
-            token_table[token_line]->operator = strdup(token_str);
-            printf("Operator: %s\n", token_table[token_line]->operator);
-        } else {
-            token_table[token_line]->operator = NULL;
-        }
-		int i;
-        for (i = 0; i < MAX_OPERAND; i++) {
-            token_str = strtok(NULL, " \t\n");
-
-            if (token_str != NULL) {
-                strcpy(token_table[token_line]->operand[i], token_str);
-                printf("Operand %d: %s\n", i + 1, token_table[token_line]->operand[i]);
-            } else {
-                strcpy(token_table[token_line]->operand[i], "");
-            }
-        }
-
-        token_str = strtok(NULL, "\n");
-
-        if (token_str != NULL) {
-            strcpy(token_table[token_line]->comment, token_str);
-            printf("Comment: %s\n", token_table[token_line]->comment);
-        } else {
-            strcpy(token_table[token_line]->comment, "");
-        }
-
-        token_line++;
-        token_table[token_line] = (token *)malloc(sizeof(token));  
-
-        if (token_table[token_line] == NULL) {
-            perror("Error allocating memory for token");
-            exit(EXIT_FAILURE);
-        }
-
-        token_str = strtok(NULL, " \t\n");
+       // 토큰화된 결과를 저장할 구조체 선언
+    token *current_token = malloc(sizeof(token));
+    if (current_token == NULL) {
+        // 동적 메모리 할당 오류 처리
+        fprintf(stderr, "Memory Allocation Error\n");
+        exit(EXIT_FAILURE);
     }
 
-    printf("Reached the end of token_parsing\n");
-    return 0;
+    // 토큰 초기화
+    current_token->label = NULL;
+    current_token->operator = NULL;
+    memset(current_token->operand, 0, sizeof(current_token->operand));
+    memset(current_token->comment, 0, sizeof(current_token->comment));
+
+    // strtok 함수를 이용하여 문자열을 토큰으로 분리
+    char *token = strtok(str, " ,\t\n");
+
+    // 토큰이 존재하는 동안 반복
+    int token_count = 0;
+    while (token != NULL && token != ".") {
+        // 첫 번째 토큰은 라벨로 가정
+        if (token_count == 0) {
+            current_token->label = strdup(token);
+        }
+        // 두 번째 토큰은 연산자로 가정
+        else if (token_count == 1) {
+            current_token->operator = strdup(token);
+        }
+        // 세 번째부터는 피연산자로 가정 (최대 3개까지)
+        else if (token_count <= 3) {
+            strcpy(current_token->operand[token_count - 2], token);
+        }
+        // 그 외의 토큰은 주석으로 가정
+        else {
+            strcat(current_token->comment, token);
+            strcat(current_token->comment, " ");
+        }
+
+        // 다음 토큰으로 이동
+        token = strtok(NULL, " ,\t");
+        token_count++;
+    }
+
+    // 구조체에 저장된 토큰 출력 (테스트용)
+    printf("Label: %s\n", current_token->label);
+    printf("Operator: %s\n", current_token->operator);
+    printf("Operand 1: %s\n", current_token->operand[0]);
+    printf("Operand 2: %s\n", current_token->operand[1]);
+    printf("Operand 3: %s\n", current_token->operand[2]);
+    printf("Comment: %s\n", current_token->comment);
+
+    // 메모리 해제
+    free(current_token->label);
+    free(current_token->operator);
+    free(current_token);
+
+    return 0; // 성공적으로 토큰화됨을 나타내는 코드
 }
+
 
 int search_opcode(uchar *str) {
-      uchar *opcode = token_table[token_line]->operator;  
-
-    // inst_table에서 명령어 검색
-    int i;
-    for (i = 0; i < inst_index; i++) {
-        if (strcmp(inst_table[i]->str, opcode) == 0) {
-            printf("Opcode found: %s\n", opcode);
-            return inst_table[i]->op;
+    for (int i = 0; i < inst_index; i++) {
+        if (strcmp(inst_table[i]->str, str) == 0) {
+            return i; // Return the index if found
         }
     }
-
-    printf("Error: Opcode not found for %s\n", opcode);
-    return -1;
+    return -1; // Return -1 if not found
 }
 
-static int assem_pass1(void) {
-    make_opcode_output("optab.txt");
-    make_symtab_output("symtab.txt");
-}
+static int assem_pass1(void);
 
 void make_opcode_output(uchar *file_name) {
-    FILE *optab_file = fopen(file_name, "w");
-    if (optab_file == NULL) {
-        perror("Error creating optab.txt file");
+    FILE *output_file = fopen(file_name, "w");
+
+    if (output_file == NULL) {
+        printf("Error opening output file.\n");
         return;
     }
 
-    // input_data를 순회하면서 명령어를 찾아 optab 정보 생성
-    int i;
-    for (i = 0; i < line_num; i++) {
-        uchar *line = input_data[i];
+    // Output header
+    fprintf(output_file, "Mnemonic   MachineCode   Format   Length\n");
 
-        // 명령어 토큰 추출
-        printf("Before token_parsing: %s\n", line);
-        token_parsing(line);
-        uchar *mnemonic = token_table[token_line]->operator;
-
-        printf("Token: %s\n", mnemonic);
-
-        // 검색된 opcode 정보를 optab 파일에 쓰기
-        int opcode = search_opcode(mnemonic);
-        if (opcode != -1) {
-            fprintf(optab_file, "%s %02X\n", mnemonic, opcode);
-        }
+    // Iterate through the inst_table to print information
+    for (int i = 0; i < inst_index; i++) {
+        fprintf(output_file, "%-10s %-14X %-8d %-6d\n",
+                inst_table[i]->str, inst_table[i]->op, inst_table[i]->format, inst_table[i]->ops);
     }
 
-    fclose(optab_file);
-    printf("%s file created successfully.\n", file_name);
+    fclose(output_file);
 }
 
+
 void make_symtab_output(uchar *file_name) {
-    FILE *symtab_file = fopen(file_name, "w");
-    if (symtab_file == NULL) {
-        perror("Error creating symtab.txt file");
+    FILE *output_file = fopen(file_name, "w");
+
+    if (output_file == NULL) {
+        printf("Error opening output file.\n");
         return;
     }
 
-    // locctr 초기화
-    locctr = 0;
+    // Output header
+    fprintf(output_file, "Label   Address   Type/Length \n");
 
-    // input_data를 순회하면서 symtab 정보 생성
-    int i;
-    for (i = 0; i < line_num; i++) {
-        uchar *line = input_data[i];
-
-        // 명령어 토큰 추출
-        printf("Before token_parsing: %s\n", line);
-        token_parsing(line);
-        uchar *mnemonic = token_table[token_line]->operator;
-
-        printf("Token: %s\n", mnemonic);
-
-        // label이 있는 경우 symtab에 추가하고 locctr 값 계산
-        if (token_table[token_line]->label != NULL) {
-            uchar *label = token_table[token_line]->label;
-            fprintf(symtab_file, "%s %04X\n", label, locctr);
-        }
-
-        // 명령어의 형식에 따라 locctr 값 계산
-        int opcode = search_opcode(mnemonic);
-        if (opcode != -1) {
-            inst *instruction = inst_table[opcode];
-            locctr += instruction->format;
-        }
+    // Iterate through the sym_table to print information
+    for (int i = 0; i < line_num; i++) {
+        fprintf(output_file, "%-7s %-9X %-12s\n",
+                sym_table[i].symbol, sym_table[i].addr, "N/A");
+        // Note: You need to modify the output based on the actual structure and content of sym_table.
+        // This example assumes some placeholder values.
     }
 
-    fclose(symtab_file);
-    printf("%s file created successfully.\n", file_name);
+    fclose(output_file);
 }
 
 static int assem_pass2(void);
 void make_objectcode_output(uchar *file_name);
 int main(){
    init_my_assembler();
-   assem_pass1();
+   make_opcode_output("optab.txt");
 }
