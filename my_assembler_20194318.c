@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>	
-#include <string.h>
 #include "my_assembler_20194318.h"
 
 int init_my_assembler(void){
