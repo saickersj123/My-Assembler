@@ -101,3 +101,10 @@ addresses to be inserted
 - Heavily used throughout the assembly*/
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
+
+
+static void write_intermediate_file(uchar *line);
+static int search_symtab(uchar *label);
+
+static int starting_address;
+static int program_length;
