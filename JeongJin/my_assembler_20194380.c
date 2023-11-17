@@ -152,18 +152,18 @@ int token_parsing(uchar* before_str) {
 
     char* token_str = strtok(before_str, " \t\n");
 
-    if (token_str != NULL && token_str[0] != '.') {
+    if (token_str != NULL && token_str[0] != '.' && token_str[0] != '-') {
         token_table[token_line]->label = _strdup(token_str);
     }
-    else if (token_str == NULL) {
-        token_table[token_line]->label = "";
+    else if (token_str == NULL && token_str[0] != '.') {
+        token_table[token_line]->label = "\0";
     }
     else if (token_str[0] == '.') {
         return;
     }
 
     token_str = strtok(NULL, " \t\n");
-    if (token_str != NULL) {
+    if (token_str != NULL) {    
         token_table[token_line]->operator = _strdup(token_str);
     }
     else{
@@ -224,7 +224,12 @@ int token_parsing(uchar* before_str) {
     //밑은 토큰화 테스트 코드임.
     
     printf("[LINE : %2d]\n", token_line);
-    printf("label : %s\n", token_table[token_line]->label);
+    if (token_table[token_line]->label != NULL) {
+        printf("label : %s\n", token_table[token_line]->label);
+    }
+    else {
+        printf("\n");
+    }
     printf("operator : %s\n", token_table[token_line]->operator);
     for (int print_i = 0; print_i < MAX_OPERAND; print_i++) {
         if (token_table[token_line]->operand[print_i][0] != '\0') {
