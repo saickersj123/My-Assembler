@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <stdlib.h>	
+#include <string.h>
 /* 
  * my_assembler 함수를 위한 변수 선언 및 매크로를 담고 있는 헤더 파일이다. 
  * 
@@ -65,6 +68,9 @@ symbol sym_table[MAX_LINES];
 
 static int locctr; // loc값 
 //--------------
+static FILE *intermediate_file;
+static int starting_address;
+static int program_length;
 
 static uchar *input_file; // 입력 파일 input.txt
 static uchar *output_file;// 출력 파일 output.txt
@@ -101,3 +107,30 @@ addresses to be inserted
 - Heavily used throughout the assembly*/
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
+
+
+static void write_intermediate_file(uchar *line) {
+    // Assuming the FILE pointer is properly initialized before calling this function
+    if (intermediate_file != NULL) {
+        // Write the line to the intermediate file
+        fprintf(intermediate_file, "%s\n", line);
+    } else {
+        // Handle the case where the FILE pointer is not valid
+        printf("Error: Intermediate file pointer is not valid.\n");
+        // You may want to add further error-handling logic here
+    }
+}
+static int search_symtab(uchar *label) {
+    // Implement the logic to search the symbol table for the given label.
+    // Return the index if found, otherwise return -1.
+
+    for (int i = 0; i < inst_index; ++i) {
+        // Compare the given label with each symbol in the symbol table
+        if (strcmp(sym_table[i].symbol, label) == 0) {
+            return i; // Found: return the index
+        }
+    }
+
+    // If the loop completes without finding a match, return -1
+    return -1; // Not found
+}

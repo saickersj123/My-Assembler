@@ -1,11 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>	
-#include <string.h>
 #include "my_assembler_20194318.h"
 
 int init_my_assembler(void){
     // inst.data 파일로 명령어 초기화
-    if (init_inst_file("inst.data") == -1) {
+    if (init_inst_file("inst_mod.data") == -1) {
         fprintf(stderr, "Error: Instruction Initiation Failed\n");
         return -1;
     }
@@ -156,7 +153,88 @@ int search_opcode(uchar *str) {
     return -1; // Return -1 if not found
 }
 
-static int assem_pass1(void);
+static int assem_pass1(void){
+    // Initialize LOCCTR and other necessary variables
+    locctr = starting_address;
+
+    // Read the first input line
+    uchar *current_line = input_data[0];
+
+    // Check for START opcode
+    if (strcmp(token_table[0]->operator, "START") == 0) {
+        // Save #[OPERAND] as the starting address
+        starting_address = atoi(token_table[0]->operand[0]);
+        // Initialize LOCCTR to starting address
+        locctr = starting_address;
+        // Write the line to the intermediate file
+        write_intermediate_file(current_line);
+        // Read the next input line
+        current_line = input_data[++line_num];
+    } else {
+        // If no START opcode, initialize LOCCTR to 0
+        locctr = 0;
+    }
+   // Process lines until END opcode is encountered
+    while (strcmp(token_table[line_num]->operator, "END") != 0) {
+        // Check for comment line
+        if (token_table[line_num]->operator[0] != '.') {
+            // Check for symbol in the LABEL field
+            if (token_table[line_num]->label[0] != '\0') {
+                // Search SYMTAB for LABEL
+                int symtab_index = search_symtab(token_table[line_num]->label);
+                if (symtab_index != -1) {
+                    // Set error flag (duplicate symbol)
+                    printf("Error: Duplicate symbol - %s\n", token_table[line_num]->label);
+                    // Handle the error as needed
+                } else {
+                    // Insert (LABEL, LOCCTR) into SYMTAB
+                    strcpy(sym_table[inst_index].symbol, token_table[line_num]->label);
+                    sym_table[inst_index].addr = locctr;
+                    inst_index++; // Increment the index for the next entry
+                }
+            }
+
+            // Search OPTAB for OPCODE
+            int opcode_index = search_opcode(token_table[line_num]->operator);
+            if (opcode_index != -1) {
+                // Add 3 {instruction length} to LOCCTR
+                locctr += 3;
+            } else if (strcmp(token_table[line_num]->operator, "WORD") == 0) {
+                // Add 3 to LOCCTR
+                locctr += 3;
+            } else if (strcmp(token_table[line_num]->operator, "RESW") == 0) {
+                // Add 3 * #[OPERAND] to LOCCTR
+                locctr += 3 * atoi(token_table[line_num]->operand[0]);
+            } else if (strcmp(token_table[line_num]->operator, "RESB") == 0) {
+                // Add #[OPERAND] to LOCCTR
+                locctr += atoi(token_table[line_num]->operand[0]);
+            } else if (strcmp(token_table[line_num]->operator, "BYTE") == 0) {
+                // Find length of constant in bytes
+                // Update LOCCTR accordingly
+                int length = 0; // Implement the logic to determine the length
+                locctr += length;
+            } else {
+                // Set error flag (invalid operation code)
+                printf("Error: Invalid operation code - %s\n", token_table[line_num]->operator);
+                // Handle the error as needed
+            }
+
+            // Write the line to the intermediate file
+            write_intermediate_file(current_line);
+        }
+
+        // Read the next input line
+        current_line = input_data[++line_num];
+    }
+
+    // Write the last line to the intermediate file
+    write_intermediate_file(current_line);
+
+    // Save (LOCCTR - starting address) as program length
+    program_length = locctr - starting_address;
+
+    return 0; // Success
+}
 
 void make_opcode_output(uchar *file_name) {
     FILE *output_file = fopen(file_name, "w");
