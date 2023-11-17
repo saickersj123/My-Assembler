@@ -1,0 +1,27 @@
+1. Symbol Table for input_106.src
+
+    Symbol Name           Loc          Section Name
+--------------------      ----      --------------------
+               FIRST      0000                      COPY
+               CLOOP      0003                      COPY
+              ENDFIL      0017                      COPY
+              RETADR      002A                      COPY
+              LENGTH      002D                      COPY
+              BUFFER      0033                      COPY
+              BUFEND      1033                      COPY
+              MAXLEN      1000                      COPY
+               RDREC      0000                     RDREC
+               RLOOP      0009                     RDREC
+                EXIT      0020                     RDREC
+               INPUT      0027                     RDREC
+              MAXLEN      0028                     RDREC
+               WRREC      0000                     WRREC
+               WLOOP      0006                     WRREC
+
+
+2. Literal Table for input_106.src
+
+       Literal            Loc        Pool Number
+--------------------      ----      -------------
+             =C'EOF'      0030            0
+              =X'05'      001B            1

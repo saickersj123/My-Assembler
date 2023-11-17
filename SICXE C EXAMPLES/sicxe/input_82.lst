@@ -1,0 +1,57 @@
+ 青     Loc                     盔矫巩                     格利内靛
+----    ----  -------------------------------------------- --------
+   5    0000  COPY     START      0
+  10    0000  FIRST    STL        RETADR                   17202D
+  15    0003           LDB        #LENGTH                  69202D
+  20                   BASE       LENGTH
+  25    0006  CLOOP    +JSUB      RDREC                    4B101036
+  30    000A           LDA        LENGTH                   032026
+  35    000D           COMP       #0                       290000
+  40    0010           JEQ        ENDFIL                   332007
+  45    0013           +JSUB      WRREC                    4B10105D
+  50    0017           J          CLOOP                    3F2FEC
+  55    001A  ENDFIL   LDA        =C'EOF'                  032010
+  60    001D           STA        BUFFER                   0F2016
+  65    0020           LDA        #3                       010003
+  70    0023           STA        LENGTH                   0F200D
+  75    0026           +JSUB      WRREC                    4B10105D
+  80    002A           J          @RETADR                  3E2003
+  85                   LTORG      
+  90    002D  *        =C'EOF'                             454F46
+  95    0030  RETADR   RESW       1
+ 100    0033  LENGTH   RESW       1
+ 105    0036  BUFFER   RESB       4096
+ 110    1036  BUFEND   EQU        *
+ 115    1000  MAXLEN   EQU        BUFEND-BUFFER
+ 120          .
+ 125          .        SUBROUTINE TO READ INTO BUFFER
+ 130          .
+ 135    1036  RDREC    CLEAR      X                        B410
+ 140    1038           CLEAR      A                        B400
+ 145    103A           CLEAR      S                        B440
+ 150    103C           +LDT       #MAXLEN                  7510FFC0
+ 155    1040  RLOOP    TD         INPUT                    E32019
+ 160    1043           JEQ        RLOOP                    332FFA
+ 165    1046           RD         INPUT                    DB2013
+ 170    1049           COMPR      A,S                      A004
+ 175    104B           JEQ        EXIT                     332008
+ 180    104E           STCH       BUFFER,X                 57C003
+ 185    1051           TIXR       T                        B850
+ 190    1053           JLT        RLOOP                    3B2FEA
+ 195    1056  EXIT     STX        LENGTH                   134000
+ 200    1059           RSUB                                4F0000
+ 205    105C  INPUT    BYTE       X'F1'                    F1
+ 210          .
+ 215          .        SUBROUTINE TO WRITE RECORD FROM BUFFER
+ 220          .
+ 225    105D  WRREC    CLEAR      X                        B410
+ 230    105F           LDT        LENGTH                   774000
+ 235    1062  WLOOP    TD         =X'05'                   E32011
+ 240    1065           JEQ        WLOOP                    332FFA
+ 245    1068           LDCH       BUFFER,X                 53C003
+ 250    106B           WD         =X'05'                   DF2008
+ 255    106E           TIXR       T                        B850
+ 260    1070           JLT        WLOOP                    3B2FEF
+ 265    1073           RSUB                                4F0000
+ 270                   END        FIRST
+ 275    1076  *        =X'05'                              05

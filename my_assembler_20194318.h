@@ -64,6 +64,8 @@ typedef struct symbol_unit symbol;
 symbol sym_table[MAX_LINES];
 
 static int locctr; // loc값 
+static int starting_address;
+static int program_length;
 //--------------
 
 static uchar *input_file; // 입력 파일 input.txt
