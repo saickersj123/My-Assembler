@@ -205,8 +205,6 @@ int token_parsing(uchar* before_str) {
     else if (comma_contain_test == 0) {
         if (token_str != NULL) {
             strcpy(token_table[token_line]->operand[0], token_str);
-        }
-        else {
             token_table[token_line]->operand[1][0] = '\0';
             token_table[token_line]->operand[2][0] = '\0';
         }
