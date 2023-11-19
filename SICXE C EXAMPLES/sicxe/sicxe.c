@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <math.h>
 #define MAXIDLEN 20 // 명칭(identifier의 표준 길이)
 
@@ -1156,7 +1157,7 @@ int pass2(char filename[])
   return (0);
 }
 
-main(int argc, char *argv[])
+void main(int argc, char *argv[])
 {
   char filename[30];
 
