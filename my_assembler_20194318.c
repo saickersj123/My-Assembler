@@ -1,29 +1,33 @@
 #include <stdio.h>
 #include <stdlib.h>	
 #include <string.h>
-#include <math.h>
-#include <ctype.h>
-#include <stdbool.h>
 #include "my_assembler_20194318.h"
 
 void write_to_intermediate_file(FILE *file) {
-    if (file == NULL) {
-        fprintf(stderr, "Error: Intermediate file not initialized.\n");
-        // Handle the error as needed
-        return;
-    }
+    if (token_table[token_line] == NULL) {
+        // Handle empty lines or comments
+        fprintf(file, "%5d    %04X  %s\n", token_line + 1, locctr, input_data[token_line]);
+    } else {
+        // Check if there is a mnemonic (operator)
+        if (token_table[token_line]->operator != NULL) {
+            fprintf(file, "%5d    %04X  %-10s%-10s", token_line + 1, locctr,
+                    token_table[token_line]->label == NULL ? "" : token_table[token_line]->label,
+                    token_table[token_line]->operator);
 
-    fprintf(file, "Line %d:\n", token_line + 1);
-    fprintf(file, "Label: %s\n", token_table[token_line]->label);
-    fprintf(file, "Operator: %s\n", token_table[token_line]->operator);
-    fprintf(file, "Operands:");
-    for (int i = 0; i < MAX_OPERAND; i++) {
-        if (token_table[token_line]->operand[i][0] != '\0') {
-            fprintf(file, "  %s\n", token_table[token_line]->operand[i]);
+            // Print operands
+            for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; i++) {
+                fprintf(file, " %-10s", token_table[token_line]->operand[i]);
+            }
+
+            // Print target address instead of comment
+            fprintf(file, "%-10X\n", search_opcode(token_table[token_line]->operator));
+        } else {
+            // No mnemonic (operator)
+            fprintf(file, "%5d    %04X  %-10s\n", token_line + 1, locctr,
+                    token_table[token_line]->label == NULL ? "" : token_table[token_line]->label);
         }
     }
-    fprintf(file, "Comment: %s\n", token_table[token_line]->comment);
-    fprintf(file, "\n");
+
 }
 
 
@@ -36,10 +40,35 @@ int search_symtab(uchar *symbol) {
     return -1; // Symbol not found
 }
 
-void add_to_symtab(uchar *symbol, int address) {
-    strcpy(sym_table[locctr].symbol, symbol);
-    sym_table[locctr].addr = address;
+void add_to_symtab(const uchar *label, int loc) {
+   // Check for duplicate symbol
+    for (int i = 0; i < MAX_LINES; i++) {
+        if (strcmp(sym_table[i].symbol, label) == 0) {
+            fprintf(stderr, "Error: Duplicate symbol found - %s\n", label);
+            // Handle the error as needed
+            return;
+        }
+    }
 
+    // Find an empty slot in the symbol table
+    int index;
+    for (index = 0; index < MAX_LINES; index++) {
+        if (sym_table[index].symbol[0] == '\0') {
+            break;  // Found an empty slot
+        }
+    }
+
+    // Check if the symbol table is full
+    if (index == MAX_LINES) {
+        fprintf(stderr, "Error: Symbol table is full.\n");
+        // Handle the error as needed
+        return;
+    }
+
+    // Add the symbol to the symbol table
+    strcpy(sym_table[index].symbol, label);
+    sym_table[index].addr = loc;
+    printf("Adding symbol to symtab: %s at address %d\n", label, loc);
 }
 
 int calculate_byte_length(uchar *operand) {
@@ -64,7 +93,6 @@ int calculate_byte_length(uchar *operand) {
         return 0;
     }
 }
-
 
 int init_my_assembler(void){
     // inst.data 파일로 명령어 초기화
@@ -125,18 +153,27 @@ int init_input_file(uchar *input_file){
     int line_index = 0;
 
     while (fgets(line, sizeof(line), input_fp) != NULL) {
+
         // 개행 문자 제거
         line[strcspn(line, "\n")] = '\0';
+       // Check if the line starts with a dot (comment)
+        if (line[0] != '.') {
+            // 입력 데이터 배열에 저장
+            input_data[line_index] = strdup(line);
 
-        // 입력 데이터 배열에 저장
-        input_data[line_index] = strdup(line);
-
-        // 다음 라인으로 이동
-        line_index++;
+            // 다음 라인으로 이동
+            line_index++;
+        }
     }
 
     // 라인 수 저장
     line_num = line_index;
+
+     printf("Input Data:\n");
+    for (int i = 0; i < line_num; i++) {
+        printf("%d: %s\n", i + 1, input_data[i]);
+    }
+    printf("Total Lines: %d\n", line_num);
 
     fclose(input_fp);
     return 0;
@@ -147,6 +184,8 @@ int token_parsing(uchar *str) {
     token_table[token_line] = malloc(sizeof(token));
     token_table[token_line]->label = NULL;
     token_table[token_line]->operator = NULL;
+    for(int i; i < MAX_OPERAND; i++){
+    token_table[token_line]->operand[i][0] = '\0';}
     token_table[token_line]->comment[0] = '\0';
 
     // 빈 줄이거나 주석인 경우 처리
@@ -154,8 +193,10 @@ int token_parsing(uchar *str) {
         return 0;
     }
 
+    uchar *scopy = strdup((char *) str);
+
     // 문자열을 공백을 기준으로 토큰화
-    char *token_str = strtok((char *)str, " \t\n");
+    uchar *token_str = strtok(scopy, " \t");
 
 
     // 첫 번째 토큰이 operator인지 확인
@@ -164,7 +205,7 @@ int token_parsing(uchar *str) {
     if (is_operator == 0) {
         // 첫 번째 토큰이 operator인 경우
         token_table[token_line]->operator = strdup(token_str);
-        token_str = strtok(NULL, ""); // 오퍼레이터 파싱 건너뛰기
+        token_str = strtok(NULL, " \t"); // 오퍼레이터 파싱 건너뛰기
     } else if(is_operator == 1){
         // 첫 번째 토큰이 operator가 아닌 경우 label로 처리
         token_table[token_line]->label = strdup(token_str);
@@ -187,35 +228,36 @@ int token_parsing(uchar *str) {
             // 여러 피연산자가 ','로 구분된 경우 처리
             if (strchr(token_str, ',')) {
                 char *operand_token = strtok(token_str, ",");
-                while (operand_token != NULL) {
+                while (operand_token != NULL) {                   
                     strcpy((char *)token_table[token_line]->operand[operand_index], operand_token);
+                    operand_token = strtok(NULL, ",\t");
                     operand_index++;
-                    operand_token = strtok(NULL, ",");
                 }
             } else {
                 // ','로 구분되지 않은 경우 피연산자 처리 후 종료
                 strcpy((char *)token_table[token_line]->operand[operand_index], token_str);
                 operand_index++;
+                token_str = strtok(NULL, "\t");
                 break;
             }
         } else {
             fprintf(stderr, "Error: Too many operands.\n");
+            free(scopy);
             return -1;
         }
-
         token_str = strtok(NULL, " \t\n"); // 다음 토큰으로 이동
     }
     
-   
+
     // 피연산자 이후의 문자열은 주석으로 처리
-    token_str = strtok(NULL, "\t\n");
     if (token_str != NULL) {
-        strcpy((char *)token_table[token_line]->comment, token_str);
+        strcpy(token_table[token_line]->comment, token_str);
     }
     else {
-        strcpy((char *)token_table[token_line]->comment, "");
+        strcpy(token_table[token_line]->comment, "");
     }
     
+    free(scopy);
 
     // 테스트 출력문
     printf("Line %d\n", token_line + 1);
@@ -231,12 +273,13 @@ int token_parsing(uchar *str) {
 }
 
 int search_opcode(uchar *str) {
-
+        if (str == NULL || str[0] == '\0' || str[0] == '.') {
+        // Skip comments and empty lines
+        return -1;
+    }
+    
     for (int i = 0; i < inst_index; i++) {
         if (strcmp(str, inst_table[i]->str) == 0 || (str[0] == '+' && strcmp(str + 1, inst_table[i]->str) == 0)) {
-            if(str[0] == '+'){
-                inst_table[i]->format = 4;
-            }
             // 검색된 명령어 정보 출력 (예시로 콘솔에 출력)
             printf("Operator: %s / ", inst_table[i]->str);
             printf("Format: %d / ", inst_table[i]->format);
@@ -251,16 +294,18 @@ int search_opcode(uchar *str) {
 }
 
 static int assem_pass1(void){
-  FILE *intermediate_file = fopen("intermediate.txt", "w");
+    FILE *intermediate_file = fopen("intermediate.txt", "w");
 
     if (intermediate_file == NULL) {
         fprintf(stderr, "Error: Unable to open intermediate file.\n");
         return -1;
     }
+    //init sym_table
+   for (int i = 0; i < MAX_LINES; i++) {
+        sym_table[i].symbol[0] = '\0';
+        sym_table[i].addr = 0;
+    }
 
-    int locctr = 0;
-    int starting_address = 0;
-    token_line = 0;
     // Read the first input line
     uchar *current_line = input_data[0];
     token_parsing(current_line);
@@ -268,91 +313,67 @@ static int assem_pass1(void){
     // Check for START directive
     if (strcmp(token_table[0]->operator, "START") == 0) {
         // Save #[OPERAND] as starting address
-        starting_address = atoi(token_table[0]->operand[0]);
+        starting_address = strtol(token_table[0]->operand[0], NULL, 16);
 
         // Initialize LOCCTR to starting address
         locctr = starting_address;
 
         // Write line to intermediate file
         write_to_intermediate_file(intermediate_file);
-
-        //Read next input line
         token_line++;
-        current_line = input_data[token_line];
-        token_parsing(current_line);
     } else {
         // If no START directive, initialize LOCCTR to 0
         locctr = 0;
     }
-  
+
     // Process lines until OPCODE is 'END'
     while (token_line < MAX_LINES &&
            (token_table[token_line] == NULL || strcmp(token_table[token_line]->operator, "END") != 0)) {
-        // Read the next input line
-            current_line = input_data[token_line];
-            token_parsing(current_line);
-        // If this is not a comment line
-        if (token_table[token_line] != NULL && input_data[token_line] != '.') {
-            // If there is a symbol in the LABEL field
-            if (token_table[token_line]->label != NULL) {
-                // Search SYMTAB for LABEL
-                int symtab_index = search_symtab(token_table[token_line]->label);
+        current_line = input_data[token_line];
+        token_parsing(current_line);
 
-                // If found, set error flag (duplicate symbol)
+        if (token_table[token_line] != NULL) {
+            if (token_table[token_line]->label != NULL) {
+                int symtab_index = search_symtab(token_table[token_line]->label);
                 if (symtab_index != -1) {
                     fprintf(stderr, "Error: Duplicate symbol found - %s\n", token_table[token_line]->label);
-                    // Handle the error as needed
+                    return -1;
                 } else {
-                    // If not found, insert (LABEL, LOCCTR) into SYMTAB
                     add_to_symtab(token_table[token_line]->label, locctr);
                 }
             }
 
-            // Search OPTAB for OPCODE
             int opcode_index = search_opcode(token_table[token_line]->operator);
 
-            // If found, add 3 (instruction length) to LOCCTR
             if (opcode_index != -1) {
                 locctr += 3;
             } else if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
-                // Else if OPCODE is 'WORD', add 3 to LOCCTR
                 locctr += 3;
             } else if (strcmp(token_table[token_line]->operator, "RESW") == 0) {
-                // Else if OPCODE is 'RESW', add 3 * #[OPERAND] to LOCCTR
                 locctr += 3 * atoi(token_table[token_line]->operand[0]);
             } else if (strcmp(token_table[token_line]->operator, "RESB") == 0) {
-                // Else if OPCODE is 'RESB', add #[OPERAND] to LOCCTR
                 locctr += atoi(token_table[token_line]->operand[0]);
             } else if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
-                // Else if OPCODE is 'BYTE', find length of constant in bytes and add to LOCCTR
                 locctr += calculate_byte_length(token_table[token_line]->operand[0]);
             } else {
-                // Else set error flag (invalid operation code)
                 fprintf(stderr, "Error: Invalid operation code - %s\n", token_table[token_line]->operator);
-                // Handle the error as needed
+                return -1;
             }
 
-            // Write line to intermediate file
             write_to_intermediate_file(intermediate_file);
-        }else {
-            token_line++;
+            make_symtab_output("symtab.txt");  // Print the symbol table
         }
-
-        // Read next input line
         token_line++;
     }
 
-    // Write last line to intermediate file
     write_to_intermediate_file(intermediate_file);
-
-    // Save (LOCCTR - starting address) as program length
     int program_length = locctr - starting_address;
 
-    // Close the intermediate file
     fclose(intermediate_file);
 
     return 0;
 }
+
 
 void make_opcode_output(uchar *file_name) {
     FILE *output_file = fopen(file_name, "w");
@@ -376,25 +397,25 @@ void make_opcode_output(uchar *file_name) {
 
 
 void make_symtab_output(uchar *file_name) {
-    FILE *symtab_file = fopen(file_name, "w");
+   FILE *output_fp = fopen(output_file, "w");
 
-    if (symtab_file == NULL) {
-        perror("Error opening symbol table file");
-        // 필요에 따라 오류 처리 추가 가능
+    if (output_fp == NULL) {
+        fprintf(stderr, "Error: Unable to open output file for symbol table.\n");
         return;
     }
 
-    // 파일에 심볼 테이블 정보 출력
-    fprintf(symtab_file, "Symbol\tAddress\n");
-    fprintf(symtab_file, "------\t-------\n");
-    
-    for (int i = 0; i < MAX_LINES; ++i) {
-        if (sym_table[i].symbol[0] != '\0') {
-            fprintf(symtab_file, "%-10s\t%04X\n", sym_table[i].symbol, sym_table[i].addr);
+    // Print the header
+    fprintf(output_fp, "%-20s%-10s%s\n", "Symbol Name", "Loc");
+    fprintf(output_fp, "%-20s%-10s%s\n", "--------------------", "----");
+
+    // Iterate through the symbol table
+    for (int i = 0; i < MAX_LINES; i++) {
+        if (token_table[i] != NULL && token_table[i]->label != NULL) {
+            fprintf(output_fp, "%-20s%-10X\n", token_table[i]->label, locctr);
         }
     }
 
-    fclose(symtab_file);
+    fclose(output_fp);
 }
 
 static int assem_pass2(void);
@@ -418,29 +439,3 @@ void write_intermediate_file(uchar *str, int locctr){
         fclose(intermediate_file);
     }
  }
-
-
-int main(void){
-    // 초기화
-    if (init_my_assembler() != 0) {
-        fprintf(stderr, "Assembler initialization failed.\n");
-        return 1;
-    }
-
-    //Pass 1 수행
-    if (assem_pass1() != 0) {
-        fprintf(stderr, "Pass 1 failed.\n");
-        return 1;
-    }
-
-    /* Pass 2 수행
-    if (assem_pass2() != 0) {
-        fprintf(stderr, "Pass 2 failed.\n");
-        return 1;
-    }*/
-
-    // 오브젝트 코드 생성
-    //make_objectcode_output("output.txt");
-
-    return 0;
-}

@@ -1,0 +1,39 @@
+    1    0000  COPY      START      0          ð­ºð­ºð­ºð­ºð­ºð­ºð­ºð­ºð­ºð­ºCOPY FILE FROM IN TO OUTPUT ð­ºð­ºð­ºð­ºð­ºCOPY FILE FROM IN TO OUTPUT0         
+    2    0003            EXTDEF     BUFFER     BUFEND     LENGTH    0         
+    3    0006            EXTREF     RDREC      WRREC     0         
+    4    0009  FIRST     STL        RETADR    0         
+    5    000C  CLOOP     +JSUB      RDREC     0         
+    6    000F            LDA        LENGTH    0         
+    7    0012            COMP       #0        0         
+    8    0015            JEQ        ENDFIL    0         
+    9    0018            +JSUB      WRREC     0         
+   10    001B            J          CLOOP     0         
+   11    001E  ENDFIL    LDA        =C'EOF'   0         
+   12    0021            STA        BUFFER    0         
+   13    0024            LDA        #3        0         
+   14    0027            STA        LENGTH    0         
+   15    002A            +JSUB      WRREC     0         
+   16    002D            J          @RETADR   0         
+   17    0030  RETADR    RESW       1         0         
+   18    0033  LENGTH    RESW       1         0         
+   19    0036            LTORG     0         
+   20    0039  BUFFER    RESB       4096      0         
+   21    003C  BUFEND    EQU        *         0         
+   22    003F  MAXLEN    EQU        BUFEND-BUFFER0         
+   23    0042  RDREC     CSECT     0         
+   24    0045            EXTREF     BUFFER     LENGTH     BUFEND    0         
+   25    0048            CLEAR      X         0         
+   26    004B            CLEAR      A         0         
+   27    004E            CLEAR      S         0         
+   28    0051            LDT        MAXLEN    0         
+   29    0054  RLOOP     TD         INPUT     0         
+   30    0057            JEQ        RLOOP     0         
+   31    005A            RD         INPUT     0         
+   32    005D            COMPR      A          S         0         
+   33    0060            JEQ        EXIT      0         
+   34    0063            +STCH      BUFFER     X         0         
+   35    0066            TIXR       T         0         
+   36    0069            JLT        RLOOP     0         
+   37    006C  EXIT      +STX       LENGTH    0         
+   38    006F            RSUB       RETURN    0         
+   39    0072  INPUT     BYTE       X'F1'     0         
