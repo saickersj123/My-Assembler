@@ -1,51 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>	
 #include <string.h>
+#include <ctype.h>
 #include "my_assembler_20194318.h"
 
-void write_to_intermediate_file(FILE *file) {
-    if (token_table[token_line] == NULL) {
-        // Handle empty lines or comments
-        fprintf(file, "%5d    %04X  %s\n", token_line + 1, locctr, input_data[token_line]);
-    } else {
-        // Check if there is a mnemonic (operator)
-        if (token_table[token_line]->operator != NULL) {
-            fprintf(file, "%5d    %04X  %-10s%-10s", token_line + 1, locctr,
-                    token_table[token_line]->label == NULL ? "" : token_table[token_line]->label,
-                    token_table[token_line]->operator);
 
-            // Print operands
-            for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; i++) {
-                fprintf(file, " %-10s", token_table[token_line]->operand[i]);
-            }
-
-            // Print target address instead of comment
-            fprintf(file, "%-10X\n", search_opcode(token_table[token_line]->operator));
-        } else {
-            // No mnemonic (operator)
-            fprintf(file, "%5d    %04X  %-10s\n", token_line + 1, locctr,
-                    token_table[token_line]->label == NULL ? "" : token_table[token_line]->label);
-        }
-    }
-
-}
-
-
-int search_symtab(uchar *symbol) {
-    for (int i = 0; i < MAX_LINES; ++i) {
-        if (strcmp(sym_table[i].symbol, symbol) == 0) {
-            return i; // Symbol found, return its index
-        }
-    }
-    return -1; // Symbol not found
-}
-
-void add_to_symtab(const uchar *label, int loc) {
-   // Check for duplicate symbol
+void add_to_symtab(const uchar *label, int loc, int is_equ) {
+    // Check for duplicate symbol
     for (int i = 0; i < MAX_LINES; i++) {
         if (strcmp(sym_table[i].symbol, label) == 0) {
-            fprintf(stderr, "Error: Duplicate symbol found - %s\n", label);
-            // Handle the error as needed
+            if (is_equ) {
+                fprintf(stderr, "Error: Duplicate symbol found - %s\n", label);
+                // Handle the error as needed
+                return;
+            }
+            // If not an EQU, it might be a label for a future address
+            // We don't want to report it as an error in this case
             return;
         }
     }
@@ -71,6 +41,7 @@ void add_to_symtab(const uchar *label, int loc) {
     printf("Adding symbol to symtab: %s at address %d\n", label, loc);
 }
 
+
 int calculate_byte_length(uchar *operand) {
     if (operand[0] == 'C' || operand[0] == 'c') {
         // Count the characters between single quotes
@@ -92,6 +63,19 @@ int calculate_byte_length(uchar *operand) {
         // This is a placeholder implementation
         return 0;
     }
+}
+
+void calculate_program_length(void) {
+    program_length = locctr - starting_address;
+}
+
+int search_symtab(uchar *symbol) {
+    for (int i = 0; i < token_line; ++i) {
+        if (strcmp(sym_table[i].symbol, symbol) == 0) {
+            return i; // Symbol found, return its index
+        }
+    }
+    return -1; // Symbol not found
 }
 
 int init_my_assembler(void){
@@ -118,7 +102,7 @@ int init_inst_file(uchar *inst_file){
         return -1;
     }
 
-    char line[50];  // Assuming each line in inst.data is not longer than 30 characters
+    char line[100];  // Assuming each line in inst.data is not longer than 30 characters
 
     while (fgets(line, sizeof(line), file) != NULL) {
         if (inst_index >= MAX_INST) {
@@ -182,28 +166,32 @@ int init_input_file(uchar *input_file){
 int token_parsing(uchar *str) {
     // 초기화
     token_table[token_line] = malloc(sizeof(token));
+    if (token_table[token_line] == NULL) {
+        fprintf(stderr, "Error: Memory allocation failed.\n");
+        return -1;
+    }
     token_table[token_line]->label = NULL;
     token_table[token_line]->operator = NULL;
-    for(int i; i < MAX_OPERAND; i++){
-    token_table[token_line]->operand[i][0] = '\0';}
-    token_table[token_line]->comment[0] = '\0';
+    for (int i = 0; i < MAX_OPERAND; i++) {
+    token_table[token_line]->operand[i][0] = '\0';
+    }
+    //token_table[token_line]->comment[0] = '\0';
 
     // 빈 줄이거나 주석인 경우 처리
    if (str[0] == '\0' || str[0] == '\n' || str[0] == '.') {
         return 0;
     }
-
     uchar *scopy = strdup((char *) str);
 
     // 문자열을 공백을 기준으로 토큰화
     uchar *token_str = strtok(scopy, " \t");
-
 
     // 첫 번째 토큰이 operator인지 확인
     int is_operator = search_opcode(token_str);
 
     if (is_operator == 0) {
         // 첫 번째 토큰이 operator인 경우
+        //token_table[token_line]->label = strdup("\0");
         token_table[token_line]->operator = strdup(token_str);
         token_str = strtok(NULL, " \t"); // 오퍼레이터 파싱 건너뛰기
     } else if(is_operator == 1){
@@ -249,13 +237,13 @@ int token_parsing(uchar *str) {
     }
     
 
-    // 피연산자 이후의 문자열은 주석으로 처리
+    /* 피연산자 이후의 문자열은 주석으로 처리
     if (token_str != NULL) {
         strcpy(token_table[token_line]->comment, token_str);
     }
     else {
         strcpy(token_table[token_line]->comment, "");
-    }
+    }*/
     
     free(scopy);
 
@@ -267,7 +255,7 @@ int token_parsing(uchar *str) {
     for (int i = 0; i < operand_index; i++) {
         printf("  %s\n", token_table[token_line]->operand[i]);
     }
-    printf("Comment: %s\n", token_table[token_line]->comment);
+    //printf("Comment: %s\n", token_table[token_line]->comment);
 
     return 0;
 }
@@ -293,19 +281,38 @@ int search_opcode(uchar *str) {
     return 1;
 }
 
-static int assem_pass1(void){
-    FILE *intermediate_file = fopen("intermediate.txt", "w");
-
-    if (intermediate_file == NULL) {
-        fprintf(stderr, "Error: Unable to open intermediate file.\n");
-        return -1;
+// Function to handle EXTDEF directive
+void handle_extdef(uchar *symbol, int addr) {
+    if (extDefCount < MAX_OPERAND) {
+        strcpy(extDef[extDefCount].symbol, symbol);
+        extDef[extDefCount].addr = addr;
+        extDefCount++;
+    } else {
+        fprintf(stderr, "Error: Too many entries in EXTDEF directive.\n");
+        // Handle the error as needed
     }
-    //init sym_table
-   for (int i = 0; i < MAX_LINES; i++) {
-        sym_table[i].symbol[0] = '\0';
-        sym_table[i].addr = 0;
-    }
+}
 
+// Function to handle EXTREF directive
+void handle_extref(uchar *symbol) {
+    if (extRefCount < MAX_OPERAND) {
+        strcpy(extRef[extRefCount].symbol, symbol);
+        extRefCount++;
+    } else {
+        fprintf(stderr, "Error: Too many entries in EXTREF directive.\n");
+        // Handle the error as needed
+    }
+}
+
+// Function to handle EQU directive
+void handle_equ_directive(uchar *label, uchar *operand) {
+    int equ_value = evaluate_expression(operand);
+    if (equ_value != -1) {
+        add_to_symtab(label, equ_value, 1); // The third argument (is_equ) is set to 1
+    }
+}
+
+static int assem_pass1(void) {
     // Read the first input line
     uchar *current_line = input_data[0];
     token_parsing(current_line);
@@ -319,7 +326,7 @@ static int assem_pass1(void){
         locctr = starting_address;
 
         // Write line to intermediate file
-        write_to_intermediate_file(intermediate_file);
+        write_intermediate_file(current_line, locctr);
         token_line++;
     } else {
         // If no START directive, initialize LOCCTR to 0
@@ -327,55 +334,72 @@ static int assem_pass1(void){
     }
 
     // Process lines until OPCODE is 'END'
-    while (token_line < MAX_LINES &&
-           (token_table[token_line] == NULL || strcmp(token_table[token_line]->operator, "END") != 0)) {
+    while (token_line < MAX_LINES) {
         current_line = input_data[token_line];
         token_parsing(current_line);
 
         if (token_table[token_line] != NULL) {
-            if (token_table[token_line]->label != NULL) {
-                int symtab_index = search_symtab(token_table[token_line]->label);
-                if (symtab_index != -1) {
-                    fprintf(stderr, "Error: Duplicate symbol found - %s\n", token_table[token_line]->label);
-                    return -1;
+            // Check for EQU directive
+            if (strcmp(token_table[token_line]->operator, "EQU") == 0) {
+                handle_equ_directive(token_table[token_line]->label, token_table[token_line]->operand[0]);
+            } 
+
+            // Check for EXTDEF and EXTREF directives
+            else if (strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
+                // Process EXTDEF directive
+                for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
+                    handle_extdef(token_table[token_line]->operand[i], locctr);
+                }
+            } else if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
+                // Process EXTREF directive
+                for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
+                    handle_extref(token_table[token_line]->operand[i]);
+                }
+            } else {
+                int opcode_index = search_opcode(token_table[token_line]->operator);
+
+                if (opcode_index != -1) {
+                    // Check for 4-format instruction
+                    if (token_table[token_line]->operator[0] == '+') {
+                        locctr += 4;
+                    } else {
+                        locctr += 3;
+                    }
+                } else if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
+                    locctr += 3;
+                } else if (strcmp(token_table[token_line]->operator, "RESW") == 0) {
+                    locctr += 3 * atoi(token_table[token_line]->operand[0]);
+                } else if (strcmp(token_table[token_line]->operator, "RESB") == 0) {
+                    locctr += atoi(token_table[token_line]->operand[0]);
+                } else if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
+                    locctr += calculate_byte_length(token_table[token_line]->operand[0]);
                 } else {
-                    add_to_symtab(token_table[token_line]->label, locctr);
+                    fprintf(stderr, "Error: Invalid operation code - %s\n", token_table[token_line]->operator);
+                    return -1;
                 }
             }
 
-            int opcode_index = search_opcode(token_table[token_line]->operator);
+            // Write line to intermediate file
+            write_intermediate_file(current_line, locctr);
 
-            if (opcode_index != -1) {
-                locctr += 3;
-            } else if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
-                locctr += 3;
-            } else if (strcmp(token_table[token_line]->operator, "RESW") == 0) {
-                locctr += 3 * atoi(token_table[token_line]->operand[0]);
-            } else if (strcmp(token_table[token_line]->operator, "RESB") == 0) {
-                locctr += atoi(token_table[token_line]->operand[0]);
-            } else if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
-                locctr += calculate_byte_length(token_table[token_line]->operand[0]);
-            } else {
-                fprintf(stderr, "Error: Invalid operation code - %s\n", token_table[token_line]->operator);
-                return -1;
+            // Check for the "END" directive to exit the loop
+            if (strcmp(token_table[token_line]->operator, "END") == 0) {
+                break;
             }
-
-            write_to_intermediate_file(intermediate_file);
-            make_symtab_output("symtab.txt");  // Print the symbol table
         }
+
         token_line++;
     }
 
-    write_to_intermediate_file(intermediate_file);
     int program_length = locctr - starting_address;
-
-    fclose(intermediate_file);
+    make_symtab_output("symtab.txt");
 
     return 0;
 }
 
 
-void make_opcode_output(uchar *file_name) {
+
+void make_opcode_output(uchar *file_name){
     FILE *output_file = fopen(file_name, "w");
 
     if (output_file == NULL) {
@@ -397,38 +421,42 @@ void make_opcode_output(uchar *file_name) {
 
 
 void make_symtab_output(uchar *file_name) {
-   FILE *output_fp = fopen(output_file, "w");
+    FILE *symtab_output_file = fopen(file_name, "w");
 
-    if (output_fp == NULL) {
-        fprintf(stderr, "Error: Unable to open output file for symbol table.\n");
-        return;
+    if (symtab_output_file == NULL) {
+        fprintf(stderr, "Error opening %s for writing.\n", file_name);
+        exit(EXIT_FAILURE);
     }
 
-    // Print the header
-    fprintf(output_fp, "%-20s%-10s%s\n", "Symbol Name", "Loc");
-    fprintf(output_fp, "%-20s%-10s%s\n", "--------------------", "----");
+    fprintf(symtab_output_file, "Symbol\tAddress\n");
+    fprintf(symtab_output_file, "----------------\n");
 
-    // Iterate through the symbol table
     for (int i = 0; i < MAX_LINES; i++) {
-        if (token_table[i] != NULL && token_table[i]->label != NULL) {
-            fprintf(output_fp, "%-20s%-10X\n", token_table[i]->label, locctr);
+        if (sym_table[i].addr != -1) {
+            fprintf(symtab_output_file, "%s\t%04X\n", sym_table[i].symbol, sym_table[i].addr);
         }
     }
 
-    fclose(output_fp);
+    fclose(symtab_output_file);
 }
 
-static int assem_pass2(void);
-void make_objectcode_output(uchar *file_name);
 
 static void insert_into_symtab(uchar *label, int locctr){
-    strcpy(sym_table[token_line].symbol, label);
-    sym_table[token_line].addr = locctr;
-    token_line++;
+    int index = search_symtab(label);
+
+    if (index == -1) {
+        // Symbol not found, insert into the symbol table
+        strcpy(sym_table[token_line].symbol, label);
+        sym_table[token_line].addr = locctr;
+        token_line++;
+    } else {
+        // Symbol found, handle the duplicate symbol error
+        printf("Error: Duplicate symbol '%s' found.\n", label);
+    }
 }
 
 void write_intermediate_file(uchar *str, int locctr){
-    FILE *intermediate_file = fopen("intermediate.txt", "w");
+    FILE *intermediate_file = fopen("intermediate.txt", "a");
     if (intermediate_file == NULL) {
         fprintf(stderr, "Error: Unable to open intermediate file for writing.\n");
         return;
@@ -439,3 +467,55 @@ void write_intermediate_file(uchar *str, int locctr){
         fclose(intermediate_file);
     }
  }
+
+int is_digit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+// Function to evaluate expressions in EQU directive
+int evaluate_expression(uchar *expr) {
+    int result = 0;
+    int current_value = 0;
+    int sign = 1; // 1 for positive, -1 for negative
+
+    for (int i = 0; expr[i] != '\0'; ++i) {
+        if (is_digit(expr[i])) {
+            current_value = current_value * 10 + (expr[i] - '0');
+        } else if (expr[i] == '-') {
+            sign = -1;
+        } else if (expr[i] == '+') {
+            sign = 1;
+        } else if (expr[i] == '*') {
+            // Handle '*' as a reference to the current location counter (locctr)
+            result += sign * locctr;
+            // Reset current_value for the next numeric part of the expression
+            current_value = 0;
+            // Reset sign to default (positive)
+            sign = 1;
+        } else if (expr[i] == ' ' || expr[i] == '\t') {
+            // Skip whitespace
+        } else {
+            // Handle symbols (assuming the symbol is a single character for simplicity)
+            char symbol[2] = {expr[i], '\0'};
+            int sym_value = search_symtab(symbol);
+
+            if (sym_value != -1) {
+                // Symbol found, add its value to the result
+                result += sign * sym_value;
+            } else {
+                fprintf(stderr, "Error: Undefined symbol - %s\n", symbol);
+                return -1; // or handle the error as needed
+            }
+
+            // Reset current_value for the next numeric part of the expression
+            current_value = 0;
+            // Reset sign to default (positive)
+            sign = 1;
+        }
+    }
+
+    // Add the last numeric part of the expression
+    result += sign * current_value;
+
+    return result;
+}

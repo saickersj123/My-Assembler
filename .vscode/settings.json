@@ -1,9 +1,3 @@
 {
-    "files.associations": {
-        "string.h": "c",
-        "stdlib.h": "c",
-        "20161623.h": "c",
-        "math.h": "c",
-        "my_assembler_20194318.h": "c"
-    }
+    "editor.tabCompletion": "off"
 }

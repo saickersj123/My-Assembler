@@ -41,7 +41,7 @@ struct token_unit
 	uchar operand[MAX_OPERAND][20];
 	uchar comment[100];
 	// 다음과제에 사용될 변수
-	// uchar nixbpe;
+	//uchar nixbpe;
 };
 
 
@@ -103,3 +103,27 @@ addresses to be inserted
 - Heavily used throughout the assembly*/
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
+static void insert_into_symtab(uchar *label, int locctr);
+void write_intermediate_file(uchar *str, int locctr);
+
+struct literal_unit {
+    uchar name[20];
+    int length;
+    int address; // -1 if not assigned an address yet
+};
+
+// Maximum number of literals (adjust as needed)
+#define MAX_LITERALS 100
+struct literal_unit literals[MAX_LITERALS];
+int num_literals = 0;
+
+// Function to evaluate an arithmetic expression
+static int evaluate_expression(uchar *expr);
+
+#define MAX_EXTDEF 10 
+#define MAX_EXTREF 10
+
+symbol extDef[MAX_EXTDEF];
+symbol extRef[MAX_EXTDEF];
+int extDefCount = 0;
+int extRefCount = 0;

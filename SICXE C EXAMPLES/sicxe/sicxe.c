@@ -1159,7 +1159,7 @@ int pass2(char filename[])
 
 void main(int argc, char *argv[])
 {
-  char filename[30];
+  char filename[30] = "input_visible.txt";
 
   if (argc > 1)
     strcpy(filename, argv[1]); // 어셈블할 소스파일명
