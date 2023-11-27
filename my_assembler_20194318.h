@@ -62,6 +62,7 @@ struct symbol_unit
 
 typedef struct symbol_unit symbol;
 symbol sym_table[MAX_LINES];
+static int sym_index;
 
 static int locctr; // loc값 
 static int starting_address;
@@ -103,9 +104,10 @@ addresses to be inserted
 - Heavily used throughout the assembly*/
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
-static void insert_into_symtab(uchar *label, int locctr);
 void write_intermediate_file(uchar *str, int locctr);
-
+void add_to_symtab(const uchar *label, int loc, int is_equ);
+int search_symtab(uchar *symbol);
+int tok_search_opcode(uchar *str);
 struct literal_unit {
     uchar name[20];
     int length;
