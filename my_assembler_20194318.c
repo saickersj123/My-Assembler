@@ -288,9 +288,9 @@ int tok_search_opcode(uchar *str) {
     for (int i = 0; i < inst_index; i++) {
         if (strcmp(str, inst_table[i]->str) == 0 || (str[0] == '+' && strcmp(str + 1, inst_table[i]->str) == 0)) {
             // 검색된 명령어 정보 출력 (예시로 콘솔에 출력)
-            printf("Operator: %s / ", inst_table[i]->str);
-            printf("Format: %d / ", inst_table[i]->format);
-            printf("Opcode Value: 0x%02X\n", inst_table[i]->op);
+            printf("Operator: %s is ON OPTAB\n", inst_table[i]->str);
+            //printf("Format: %d / ", inst_table[i]->format);
+            //printf("Opcode Value: 0x%02X\n", inst_table[i]->op);
             return 0;  // 검색 성공
         }
     }
@@ -336,6 +336,27 @@ void handle_equ_directive(uchar *label, uchar *operand) {
     }
 }
 
+// Function to handle LTORG directive
+void handle_ltorg_directive(void) {
+   int literal_length = 0;
+    int literal_address = -1;
+
+    // Iterate through the literal table
+    for (int i = 0; i < LT_num; i++) {
+        // Check if the literal has been assigned an address
+        if (LTtab[i].addr == -1) {
+            // If not assigned, assign the next available address
+            LTtab[i].addr = locctr + literal_length;
+            literal_length += LTtab[i].leng;
+
+            // Update the literal address in the intermediate file
+            write_intermediate_file("", LTtab[i].addr);
+        }
+    }
+
+    // Update the location counter with the total length of literals
+    locctr += literal_length;
+}
 
 static int assem_pass1(void) {
     locctr = 0;
@@ -370,8 +391,8 @@ static int assem_pass1(void) {
             add_to_symtab(token_table[0]->label, locctr, 0);
         }
         
-
         token_line++;
+
     } else {
         // If no START directive, initialize LOCCTR to 0
         locctr = 0;
@@ -403,6 +424,10 @@ static int assem_pass1(void) {
                 add_to_symtab(token_table[token_line]->label, locctr, 0);
             }
 
+            // Check for LTORG directive
+            if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
+                handle_ltorg_directive();
+            }
 
             // Check for EQU directive
             if (strcmp(token_table[token_line]->operator, "EQU") == 0) {
@@ -447,12 +472,27 @@ static int assem_pass1(void) {
                     return -1;
                 }
             }
-
+              // Check for literals and add them to the literal table
+            for (int i = 0; i < MAX_OPERAND; ++i) {
+                uchar *operand = token_table[token_line]->operand[i];
+                if (operand[0] == '=' && (operand[1] == 'C' || operand[1] == 'X')) {
+                    // Found a literal
+                    int length = calculate_byte_length(operand);
+                    if (length != -1) {
+                        // Add the literal to the literal table
+                        LTtab[LT_num].leng = length;
+                        strcpy(LTtab[LT_num].name, operand);
+                        LTtab[LT_num].addr = -1;  // Not assigned an address yet
+                        LT_num++;
+                    }
+                }
+            }
             // Write line to intermediate file
             write_intermediate_file(current_line, locctr);
 
             // Check for the "END" directive to exit the loop
             if (strcmp(token_table[token_line]->operator, "END") == 0) {
+                handle_ltorg_directive();
                 break;
             }
         }
@@ -465,7 +505,6 @@ static int assem_pass1(void) {
 
     return 0;
 }
-
 
 
 void make_opcode_output(uchar *file_name){
@@ -506,6 +545,13 @@ void make_symtab_output(uchar *file_name) {
         }
     }
 
+    fprintf(symtab_output_file, "Literal\tAddress\tPool Num\n");
+    fprintf(symtab_output_file, "--------------------------\n");
+    for (int i = 0; i < LT_num; i++) {
+        if (LTtab[i].addr != -1) {
+            fprintf(symtab_output_file, "%s\t%04X\t%d\n", LTtab[i].name, LTtab[i].addr, i);
+        }
+    }
     fclose(symtab_output_file);
 }
 
@@ -532,46 +578,51 @@ int evaluate_expression(uchar *expr) {
     int result = 0;
 
     while (token != NULL) {
-        // If the token is a symbol, get its value
-        int value;
-        if (isalpha(token[0])) {
-            value = search_symtab(token);
-            if (value == -1) {
-                // Symbol not found, handle error
-                fprintf(stderr, "Error: Undefined symbol - %s\n", token);
-                return -1;
-            }
+        // If the token is '*', replace it with the current location counter
+        if (strcmp(token, "*") == 0) {
+            result = locctr;
         } else {
-            // If the token is a constant, convert it to an integer
-            value = atoi(token);
-        }
+            // If the token is a symbol, get its value
+            int value;
+            if (isalpha(token[0])) {
+                value = search_symtab(token);
+                if (value == -1) {
+                    // Symbol not found, handle error
+                    fprintf(stderr, "Error: Undefined symbol - %s\n", token);
+                    return -1;
+                }
+            } else {
+                // If the token is a constant, convert it to an integer
+                value = atoi(token);
+            }
 
-        // Determine the operator and perform the operation
-        char *op = strpbrk(expr, "+-*/");
-        if (op != NULL) {
-            switch (*op) {
-                case '+':
-                    result += value;
-                    break;
-                case '-':
-                    result -= value;
-                    break;
-                case '*':
-                    result *= value;
-                    break;
-                case '/':
-                    if (value != 0) {
-                        result /= value;
-                    } else {
-                        // Division by zero, handle error
-                        fprintf(stderr, "Error: Division by zero\n");
-                        return -1;
-                    }
-                    break;
+            // Determine the operator and perform the operation
+            char *op = strpbrk(expr, "+-*/");
+            if (op != NULL) {
+                switch (*op) {
+                    case '+':
+                        result += value;
+                        break;
+                    case '-':
+                        result -= value;
+                        break;
+                    case '*':
+                        result *= value;
+                        break;
+                    case '/':
+                        if (value != 0) {
+                            result /= value;
+                        } else {
+                            // Division by zero, handle error
+                            fprintf(stderr, "Error: Division by zero\n");
+                            return -1;
+                        }
+                        break;
+                }
+            } else {
+                // If there are no more operators, the current value is the final result
+                result = value;
             }
-        } else {
-            // If there are no more operators, the current value is the final result
-            result = value;
         }
 
         // Move to the next token

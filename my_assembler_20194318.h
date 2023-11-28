@@ -58,6 +58,7 @@ struct symbol_unit
 {
 	uchar symbol[10];
 	int addr;
+	int sec; // section
 };
 
 typedef struct symbol_unit symbol;
@@ -110,14 +111,15 @@ int search_symtab(uchar *symbol);
 int tok_search_opcode(uchar *str);
 struct literal_unit {
     uchar name[20];
-    int length;
-    int address; // -1 if not assigned an address yet
+    int leng;
+    int addr; // -1 if not assigned an address yet
 };
 
 // Maximum number of literals (adjust as needed)
 #define MAX_LITERALS 100
-struct literal_unit literals[MAX_LITERALS];
-int num_literals = 0;
+struct literal_unit LTtab[MAX_LITERALS];
+static int LT_num;
+
 
 // Function to evaluate an arithmetic expression
 static int evaluate_expression(uchar *expr);

@@ -15,3 +15,8 @@ EXIT	0020
 INPUT	0027
 WRREC	0000
 WLOOP	0006
+Literal	Address	Pool Num
+--------------------------
+=C'EOF'	0030	0
+=X'05'	001E	1
+=X'05'	001E	2
