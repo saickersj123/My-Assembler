@@ -105,6 +105,8 @@ addresses to be inserted
 - Heavily used throughout the assembly*/
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
+
+
 void write_intermediate_file(uchar *str, int locctr);
 void add_to_symtab(const uchar *label, int loc, int is_equ);
 int search_symtab(uchar *symbol);
@@ -120,7 +122,6 @@ struct literal_unit {
 struct literal_unit LTtab[MAX_LITERALS];
 static int LT_num;
 
-
 // Function to evaluate an arithmetic expression
 static int evaluate_expression(uchar *expr);
 
@@ -131,3 +132,34 @@ symbol extDef[MAX_EXTDEF];
 symbol extRef[MAX_EXTDEF];
 int extDefCount = 0;
 int extRefCount = 0;
+
+typedef struct {
+    int address;   // Address of the object code
+    uchar code[10]; // Object code representation
+} object_code;
+
+// Define an array to store object code information
+object_code obj_codes[MAX_LINES];
+
+// Define a counter for object code records
+static int obj_code_count = 0;
+
+FILE *object_code_file;
+
+// Function to generate object code based on the instruction format
+void generate_object_code(int is_extended, int opcode_index);
+
+// Function to generate modification records
+void generate_modification_record(void);
+
+// Define a structure for the modification records
+typedef struct {
+    int start;   // Starting address of modification
+    int length;  // Length of modification
+} modification;
+
+// Define an array to store modification records
+modification mod_records[MAX_LINES];
+
+// Define a counter for modification records
+static int mod_record_count = 0;

@@ -38,13 +38,34 @@ void add_to_symtab(const uchar *label, int loc, int is_equ) {
     // Add the symbol to the symbol table
     strcpy(sym_table[sym_index].symbol, label);
     sym_table[sym_index].addr = loc;
-    printf("Adding symbol to symtab: %s at address %d\n", label, loc);
+    printf("Adding symbol to symtab: %s at address %04X\n", label, loc);
     sym_index++;
 }
 
+int search_literal(uchar *operand) {
+    for (int i = 0; i < LT_num; ++i) {
+        if (strcmp(LTtab[i].name, operand) == 0) {
+            // Literal found, return its index
+            return i;
+        }
+    }
+    // Literal not found
+    return -1;
+}
 
 int calculate_byte_length(uchar *operand) {
-    if (operand[0] == 'C' || operand[0] == 'c') {
+        if (operand[0] == '=') {
+        // Literal processing
+        int literal_index = search_literal(operand);
+        if (literal_index != -1) {
+            return LTtab[literal_index].leng;
+        } else {
+            // Literal not found, handle error
+            fprintf(stderr, "Error: Undefined literal - %s\n", operand);
+            return -1;
+        }
+
+    }else if (operand[0] == 'C' || operand[0] == 'c') {
         // Count the characters between single quotes
         int length = 0;
         for (int i = 2; operand[i] != '\''; ++i) {
@@ -60,7 +81,6 @@ int calculate_byte_length(uchar *operand) {
         }
         return (length + 1) / 2; // Adjust for hexadecimal format
     } 
-        return 0;
 }
 
 void calculate_program_length(void) {
@@ -302,25 +322,14 @@ int tok_search_opcode(uchar *str) {
 
 // Function to handle EXTDEF directive
 void handle_extdef(uchar *symbol, int addr) {
-    if (extDefCount < MAX_OPERAND) {
         strcpy(extDef[extDefCount].symbol, symbol);
         extDef[extDefCount].addr = addr;
-        extDefCount++;
-    } else {
-        fprintf(stderr, "Error: Too many entries in EXTDEF directive.\n");
-        // Handle the error as needed
-    }
 }
 
 // Function to handle EXTREF directive
 void handle_extref(uchar *symbol) {
-    if (extRefCount < MAX_OPERAND) {
         strcpy(extRef[extRefCount].symbol, symbol);
         extRefCount++;
-    } else {
-        fprintf(stderr, "Error: Too many entries in EXTREF directive.\n");
-        // Handle the error as needed
-    }
 }
 
 // Function to handle EQU directive
@@ -339,7 +348,6 @@ void handle_equ_directive(uchar *label, uchar *operand) {
 // Function to handle LTORG directive
 void handle_ltorg_directive(void) {
    int literal_length = 0;
-    int literal_address = -1;
 
     // Iterate through the literal table
     for (int i = 0; i < LT_num; i++) {
@@ -367,9 +375,11 @@ static int assem_pass1(void) {
 
     // Initialize the symbol table
     for (int i = 0; i < MAX_LINES; ++i) {
+        sym_table[i].sec = -1;
         sym_table[i].addr = -1;
         sym_table[i].symbol[0] = '\0';
     }
+
 
     // Read the first input line
     uchar *current_line = input_data[0];
@@ -424,28 +434,27 @@ static int assem_pass1(void) {
                 add_to_symtab(token_table[token_line]->label, locctr, 0);
             }
 
-            // Check for LTORG directive
-            if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
-                handle_ltorg_directive();
-            }
-
             // Check for EQU directive
             if (strcmp(token_table[token_line]->operator, "EQU") == 0) {
                 handle_equ_directive(token_table[token_line]->label, token_table[token_line]->operand[0]);
-            } 
+                // Update locctr with the evaluated value from EQU directive
+                locctr = sym_table[sym_index - 1].addr;  // Update locctr to the EQU value
+                   // Write line to intermediate file after updating locctr
+            write_intermediate_file(current_line, locctr);
+            } else {
+            // Write line to intermediate file for other directives and instructions
+            write_intermediate_file(current_line, locctr);
+             }
+             
 
             // Check for EXTDEF and EXTREF directives
-            else if (strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
+            if (strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
                 // Process EXTDEF directive
                 for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
                     handle_extdef(token_table[token_line]->operand[i], locctr);
                 }
-            } else if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
-                // Process EXTREF directive
-                for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
-                    handle_extref(token_table[token_line]->operand[i]);
-                }
-            } else {
+            } 
+             else {
                 int opcode_index = search_opcode(token_table[token_line]->operator);
 
                 if (opcode_index != -1) {
@@ -453,51 +462,57 @@ static int assem_pass1(void) {
                     // Check for 4-format instruction
                     if (token_table[token_line]->operator[0] == '+') {
                         locctr += 4; 
-                    } else if (inst_table[opcode_index]->format == 2) {
-                        locctr += 2;
-                    } else {
-                        locctr += 3;
+                    } else if (inst_table[opcode_index]->format > 0) {
+                        locctr += inst_table[opcode_index]->format;
                     }
                     
-                } else if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
+                } if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
                     locctr += 3;
-                } else if (strcmp(token_table[token_line]->operator, "RESW") == 0) {
+                } if (strcmp(token_table[token_line]->operator, "RESW") == 0) {
                     locctr += 3 * atoi(token_table[token_line]->operand[0]);
-                } else if (strcmp(token_table[token_line]->operator, "RESB") == 0) {
+                } if (strcmp(token_table[token_line]->operator, "RESB") == 0) {
                     locctr += atoi(token_table[token_line]->operand[0]);
-                } else if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
+                } if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
                     locctr += calculate_byte_length(token_table[token_line]->operand[0]);
-                } else {
-                    fprintf(stderr, "Error: Invalid operation code - %s\n", token_table[token_line]->operator);
-                    return -1;
-                }
+                } // Check for LTORG directive
+                 if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
+                handle_ltorg_directive();
+                } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
+                // Process EXTREF directive
+                for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
+                    handle_extref(token_table[token_line]->operand[i]);
+                    } 
+                } 
             }
-              // Check for literals and add them to the literal table
+
+             // Check for literals and add them to the literal table
             for (int i = 0; i < MAX_OPERAND; ++i) {
                 uchar *operand = token_table[token_line]->operand[i];
                 if (operand[0] == '=' && (operand[1] == 'C' || operand[1] == 'X')) {
                     // Found a literal
                     int length = calculate_byte_length(operand);
-                    if (length != -1) {
+                 
                         // Add the literal to the literal table
                         LTtab[LT_num].leng = length;
                         strcpy(LTtab[LT_num].name, operand);
                         LTtab[LT_num].addr = -1;  // Not assigned an address yet
                         LT_num++;
-                    }
                 }
             }
-            // Write line to intermediate file
-            write_intermediate_file(current_line, locctr);
+            
 
             // Check for the "END" directive to exit the loop
             if (strcmp(token_table[token_line]->operator, "END") == 0) {
                 handle_ltorg_directive();
                 break;
             }
-        }
+            
 
+
+        }
+        //Read Next
         token_line++;
+
     }
 
     int program_length = locctr - starting_address;
@@ -630,4 +645,203 @@ int evaluate_expression(uchar *expr) {
     }
 
     return result;
+}
+
+
+void make_objectcode_output(uchar *file_name) {
+    FILE *object_code_file = fopen(file_name, "w");
+    if (object_code_file == NULL) {
+        fprintf(stderr, "Error: Unable to open object code file for writing.\n");
+        return;
+    }
+    uchar *current_line = input_data[0];
+    token_parsing(current_line);
+
+    // Write the object code header
+    fprintf(object_code_file, "H%-6s%06X%06X\n", token_table[0]->label, starting_address, program_length);
+
+    // Write the text records
+    for (int i = 0; i < obj_code_count; i++) {
+        int j = i;
+        int length = 0;
+        int address = obj_codes[i].address;
+        while (j < obj_code_count && obj_codes[j].address == address) {
+            length += strlen(obj_codes[j].code);
+            j++;
+        }
+        fprintf(object_code_file, "T%06X%02X%s\n", address, length / 2, obj_codes[i].code);
+        i = j - 1;
+    }
+
+    // Write the modification records
+    for (int i = 0; i < mod_record_count; i++) {
+        fprintf(object_code_file, "M%06X%02X\n", mod_records[i].start, mod_records[i].length);
+    }
+
+    // Write the end record
+    fprintf(object_code_file, "E%06X\n", starting_address);
+
+    // Close the object code file
+    fclose(object_code_file);
+}
+
+// Function to generate object code based on the instruction format
+void generate_object_code(int is_extended, int opcode_index) {
+    int object_code;
+    int format = inst_table[opcode_index]->format;
+
+    // Check for format 1 instruction
+    if (format == 1) {
+        // Format 1: opcode only
+        object_code = inst_table[opcode_index]->op;
+    }
+    // Check for format 2 instruction
+    else if (format == 2) {
+        // Format 2: opcode + registers
+        int reg1 = atoi(token_table[token_line]->operand[0]);
+        int reg2 = atoi(token_table[token_line]->operand[1]);
+        object_code = (inst_table[opcode_index]->op << 8) + (reg1 << 4) + reg2;
+    }
+    // Check for format 3/4 instruction
+    else {
+        // Format 3/4: opcode + (nixbpe) + displacement
+        int nixbpe = 0;
+
+        // Set 'n' bit
+        if (is_extended || token_table[token_line]->operand[0][0] == '#') {
+            nixbpe |= 1 << 5;
+        }
+
+        // Set 'i' bit
+        if (token_table[token_line]->operand[0][0] != '#') {
+            nixbpe |= 1 << 4;
+        }
+
+        // Set 'x' bit
+        if (token_table[token_line]->operand[1] != NULL && strcmp(token_table[token_line]->operand[1], ",X") == 0) {
+            nixbpe |= 1 << 3;
+        }
+
+        int disp;
+        if (is_extended) {
+            // Format 4: 20-bit address in operand field
+            nixbpe |= 1 << 1;  // Set 'b' bit
+            nixbpe |= 1;       // Set 'p' bit
+
+            // Calculate the 20-bit address
+            disp = strtol(token_table[token_line]->operand[0] + 1, NULL, 16);
+        } else {
+            // Format 3: 12-bit displacement from base or PC
+            int target_address = search_symtab(token_table[token_line]->operand[0]);
+
+            // Check if base relative addressing is possible
+            if (target_address != -1 && target_address >= locctr - 2048 && target_address <= locctr + 2047) {
+                disp = target_address - locctr;
+                nixbpe |= 1 << 1;  // Set 'b' bit
+            } else {
+                // Use PC relative addressing
+                disp = target_address - (locctr + 3);
+                nixbpe |= 1;  // Set 'p' bit
+            }
+        }
+
+        // Combine opcode, nixbpe, and displacement to get the object code
+        object_code = (inst_table[opcode_index]->op << 16) + (nixbpe << 12) + (disp & 0xFFF);
+    }
+
+    // Store the object code in the array
+    sprintf(obj_codes[obj_code_count].code, "%06X", object_code);
+    obj_codes[obj_code_count].address = locctr;
+    obj_code_count++;
+}
+
+// Function to generate modification records
+void generate_modification_record(void) {
+    // Iterate through the modification records and add them to the array
+    for (int i = 0; i < MAX_LINES; i++) {
+        if (mod_records[i].start != 0) {
+            fprintf(object_code_file, "M%06X%02X\n", mod_records[i].start, mod_records[i].length);
+        }
+    }
+}
+
+// Function to handle literals and generate object code
+void handle_literals(void) {
+    for (int i = 0; i < MAX_OPERAND; ++i) {
+        uchar *operand = token_table[token_line]->operand[i];
+        if (operand[0] == '=' && (operand[1] == 'C' || operand[1] == 'X')) {
+            // Found a literal
+            int length = calculate_byte_length(operand);
+
+            // Check if the literal is already in the literal table
+            int literal_index = search_literal(operand);
+
+            if (literal_index == -1) {
+                // Literal not found, add it to the literal table
+                LTtab[LT_num].leng = length;
+                strcpy(LTtab[LT_num].name, operand);
+                LTtab[LT_num].addr = -1;  // Not assigned an address yet
+                LT_num++;
+            }
+        }
+    }
+}
+void generate_literal_modification_record(void) {
+    // Iterate through the literal table and generate modification records
+    for (int i = 0; i < LT_num; i++) {
+        fprintf(object_code_file, "M%06X%02X\n", LTtab[i].addr, LTtab[i].leng / 2);
+    }
+}
+
+int assem_pass2(void){
+       // Open the object code output file
+    object_code_file = fopen("objectcode.txt", "w");
+    if (object_code_file == NULL) {
+        fprintf(stderr, "Error: Unable to open object code output file for writing.\n");
+        return -1;
+    }
+
+    // Reset object code count, modification record count, and literal table count
+    obj_code_count = 0;
+    mod_record_count = 0;
+    LT_num = 0;
+
+    // Process lines until OPCODE is 'END'
+    while (token_line < MAX_LINES) {
+        uchar *current_line = input_data[token_line];
+        token_parsing(current_line);
+
+        // Check for the "END" directive to exit the loop
+        if (strcmp(token_table[token_line]->operator, "END") == 0) {
+            break;
+        }
+
+        // Check for extended format (4) instruction
+        int is_extended = 0;
+        if (token_table[token_line]->operator[0] == '+') {
+            is_extended = 1;
+        }
+
+        // Get the opcode index
+        int opcode_index = search_opcode(token_table[token_line]->operator);
+
+        // Generate object code
+        generate_object_code(is_extended, opcode_index);
+
+        // Handle literals
+        handle_literals();
+
+        token_line++;
+    }
+
+    // Generate modification records for literals
+    generate_literal_modification_record();
+
+    // Generate the final object code output file
+    make_objectcode_output("objectcode.txt");
+
+    // Close the object code output file
+    fclose(object_code_file);
+
+    return 0;
 }

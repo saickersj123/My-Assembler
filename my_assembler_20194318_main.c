@@ -11,15 +11,11 @@ int main(void){
         fprintf(stderr, "Pass 1 failed.\n");
         return 1;
     }
-
-    /* Pass 2 수행
+    // Pass 2 수행
     if (assem_pass2() != 0) {
         fprintf(stderr, "Pass 2 failed.\n");
         return 1;
-    }*/
-
-    // 오브젝트 코드 생성
-    //make_objectcode_output("output.txt");
+    }
 
     return 0;
 }
