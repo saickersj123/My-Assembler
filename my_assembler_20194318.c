@@ -399,10 +399,10 @@ static int assem_pass1(void) {
         // Write line to intermediate file
         write_intermediate_file(current_line, locctr);
 
-        // Add the label to the symbol table
+        /*// Add the label to the symbol table
         if (token_table[0]->label != NULL) {
             add_to_symtab(token_table[0]->label, locctr, 0);
-        }
+        }*/
         
         token_line++;
 
@@ -848,25 +848,27 @@ static int assem_pass2(void) {
 
             if (opcode_index != -1) {
                 int format = inst_table[opcode_index]->format;
-
+                if (strcmp(token_table[token_line]->operator, "END") == 0){
+                    break;
+                }
                 // Handle directives
                 if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
                     // Handle WORD directive
                     generate_object_code(0, opcode_index, locctr);
-                } else if (strcmp(token_table[token_line]->operator, "RESB") == 0 ||
+                } if (strcmp(token_table[token_line]->operator, "RESB") == 0 ||
                            strcmp(token_table[token_line]->operator, "RESW") == 0) {
                     // Handle RESB and RESW directives
                     initialize_text_record(text_record, &text_record_start, &text_record_length, locctr);
-                } else if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
+                } if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
                     // Handle BYTE directive
                     convert_constant_to_object_code(token_table[token_line]->operand[0], text_record[text_record_length]);
                     text_record_length++;
-                } else if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
+                } if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
                     // Handle LTORG directive
                     initialize_text_record(text_record, &text_record_start, &text_record_length, locctr);
                     handle_ltorg_directive();
                     ltorg_address = locctr;
-                } else if (strcmp(token_table[token_line]->operator, "CSECT") == 0) {
+                } if (strcmp(token_table[token_line]->operator, "CSECT") == 0) {
                     // Handle CSECT directive
                     if (csect_start_address != -1) {
                         // Write the last text record of the previous control section
@@ -878,11 +880,11 @@ static int assem_pass2(void) {
                     csect_start_address = locctr;
                     csect_length = 0;
                     strcpy(csect_name, token_table[token_line]->label);
-                } else if (strcmp(token_table[token_line]->operator, "EXTREF") == 0 ||
+                } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0 ||
                            strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
                     // Handle EXTREF and EXTDEF directives
                     // These directives have already been processed in pass 1, so no additional action is needed in pass 2.
-                } else if (format == 3 || format == 4) {
+                } if (format == 3 || format == 4) {
                     // Handle instructions with format 3/4
                     generate_object_code(format == 4, opcode_index, locctr);
                     if (locctr - ltorg_address >= LTORG_LENGTH) {
@@ -906,7 +908,7 @@ static int assem_pass2(void) {
 
 
     // Write EXTDEF and EXTREF records
-    write_extdef_extref_records(extDef, extDefCount , extRef, extRefCount);
+    //write_extdef_extref_records(extDef, extDefCount , extRef, extRefCount);
 
     // Write the End record
     write_end_record(object_code_file, csect_start_address);

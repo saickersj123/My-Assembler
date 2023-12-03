@@ -766,7 +766,7 @@ int handlepass2()
           if (W3 < 0) {
             printf("Error: Undefinded symbol: %s\n", op1);
             obj[0] = obj[1] = obj[2] = 0;
-            return(3);
+            return(3); 
           }
           // 수정 레코드(Modification record)에 추가
           // L2-STARTADDR+1 -> 현 제어섹션의 처음부터 상대적으로 표기된 수정될 필드의 주소

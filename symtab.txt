@@ -1,6 +1,5 @@
 Symbol	Address
 ----------------
-COPY	0000
 FIRST	0000
 CLOOP	0003
 ENDFIL	0017
