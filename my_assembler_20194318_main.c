@@ -12,10 +12,12 @@ int main(void){
         return 1;
     }
     // Pass 2 ผ๖วเ
-    if (assem_pass2() != 0) {
-        fprintf(stderr, "Pass 2 failed.\n");
+   if (assem_pass2() != 0) {
+        fprintf(stderr, "Pass 1 failed.\n");
         return 1;
     }
-
+    //print success message
+    printf("Assembler successfully completed both passes.\n");
+    
     return 0;
 }
