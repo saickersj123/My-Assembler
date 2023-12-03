@@ -573,19 +573,31 @@ void make_symtab_output(uchar *file_name) {
     fclose(symtab_output_file);
 }
 
-void write_intermediate_file(uchar *str, int locctr){
-    FILE *intermediate_file = fopen("intermediate.txt", "a");
-    if (intermediate_file == NULL) {
-        fprintf(stderr, "Error: Unable to open intermediate file for writing.\n");
-        return;
-    }
-    // write locctr and inputs
-    fprintf(intermediate_file, "%04X %s\n", locctr, str);
-    if (intermediate_file != NULL) {
-        fclose(intermediate_file);
-    }
- }
+int is_first_write = 1;
+void write_intermediate_file(uchar *str, int locctr)
+{
+FILE *intermediate_file;
 
+if (is_first_write)
+{
+    intermediate_file = fopen("intermediate.txt", "w");
+    is_first_write = 0;
+}
+else
+{
+    intermediate_file = fopen("intermediate.txt", "a");
+}
+
+if (intermediate_file == NULL)
+{
+    fprintf(stderr, "Error: Unable to open intermediate file for writing.");
+    return;
+}
+
+fprintf(intermediate_file, "%04X %s\n", locctr, str);
+
+fclose(intermediate_file);
+}
 int is_digit(char c) {
     return c >= '0' && c <= '9';
 }
