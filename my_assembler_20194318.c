@@ -5,10 +5,10 @@
 #include "my_assembler_20194318.h"
 
 
-void add_to_symtab(const uchar *label, int loc, int is_equ) {
+void add_to_symtab(const uchar *label, int loc, int is_equ, int sec) {
     // Check for duplicate symbol
     for (int i = 0; i < sym_index; i++) {
-        if (strcmp(sym_table[i].symbol, label) == 0) {
+        if (strcmp(sym_table[i].symbol, label) == 0 && sym_table[i].sec == sec) {
             if (is_equ) {
                 fprintf(stderr, "Error: Duplicate symbol found - %s\n", label);
                 // Handle the error as needed
@@ -38,8 +38,10 @@ void add_to_symtab(const uchar *label, int loc, int is_equ) {
     // Add the symbol to the symbol table
     strcpy(sym_table[sym_index].symbol, label);
     sym_table[sym_index].addr = loc;
-    printf("Adding symbol to symtab: %s at address %04X\n", label, loc);
+    sym_table[sym_index].sec = sec;
+    printf("Adding symbol to symtab: %s of section %d at address %04X\n", label, sec, loc);
     sym_index++;
+    sec++;
 }
 
 int search_literal(uchar *operand) {
@@ -339,11 +341,11 @@ void handle_extref(uchar *symbol) {
 void handle_equ_directive(uchar *label, uchar *operand) {
      if (strcmp(operand, "*") == 0) {
         // Set the address of the label to the current LOCCTR
-        add_to_symtab(label, locctr, 0);
+        add_to_symtab(label, locctr, 0, sec);
     } else {
     int equ_value = evaluate_expression(operand);
         if (equ_value != -1) {
-        add_to_symtab(label, equ_value, 1); // The third argument (is_equ) is set to 1
+        add_to_symtab(label, equ_value, 1, sec); // The third argument (is_equ) is set to 1
         }
     }
 }
@@ -375,6 +377,7 @@ static int assem_pass1(void) {
     program_length = 0;
     token_line = 0;
     sym_index = 0;
+    sec = 0;
 
     // Initialize the symbol table
     for (int i = 0; i < MAX_LINES; ++i) {
@@ -403,7 +406,6 @@ static int assem_pass1(void) {
         if (token_table[0]->label != NULL) {
             add_to_symtab(token_table[0]->label, locctr, 0);
         }*/
-        
         token_line++;
 
     } else {
@@ -422,9 +424,10 @@ static int assem_pass1(void) {
             if (strcmp(token_table[token_line]->operator, "CSECT") == 0) {
                 // Start a new section, reset the program counter
                 locctr = strtol(token_table[token_line]->operand[0], NULL, 16);
+                sec++;
                 // Add the section name to the symbol table
                 if (token_table[token_line]->label != NULL) {
-                    add_to_symtab(token_table[token_line]->label, locctr, 0);
+                    add_to_symtab(token_table[token_line]->label, locctr, 0, sec);
                 }
                 // Write line to intermediate file
                 write_intermediate_file(current_line, locctr);
@@ -434,7 +437,7 @@ static int assem_pass1(void) {
 
             // Add the label to the symbol table
             if (token_table[token_line]->label != NULL) {
-                add_to_symtab(token_table[token_line]->label, locctr, 0);
+                add_to_symtab(token_table[token_line]->label, locctr, 0, sec);
             }
 
             // Check for EQU directive
@@ -443,6 +446,7 @@ static int assem_pass1(void) {
                 // Update locctr with the evaluated value from EQU directive
                 locctr = sym_table[sym_index - 1].addr;  // Update locctr to the EQU value
                    // Write line to intermediate file after updating locctr
+                   
             write_intermediate_file(current_line, locctr);
             } else {
             // Write line to intermediate file for other directives and instructions
@@ -554,17 +558,17 @@ void make_symtab_output(uchar *file_name) {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(symtab_output_file, "Symbol\tAddress\n");
-    fprintf(symtab_output_file, "----------------\n");
+    fprintf(symtab_output_file, "Symbol\tAddress\tSection\n");
+    fprintf(symtab_output_file, "-----------------------\n");
 
     for (int i = 0; i < sym_index; i++) {
         if (sym_table[i].addr != -1) {
-            fprintf(symtab_output_file, "%s\t%04X\n", sym_table[i].symbol, sym_table[i].addr);
+            fprintf(symtab_output_file, "%s\t%04X\t%d\n", sym_table[i].symbol, sym_table[i].addr, sym_table[i].sec);
         }
     }
 
-    fprintf(symtab_output_file, "\nLiteral\tAddress\tPool Num\n");
-    fprintf(symtab_output_file, "--------------------------\n");
+    fprintf(symtab_output_file, "\nLiteral\tAddress\tPoolNum\n");
+    fprintf(symtab_output_file, "-----------------------\n");
     for (int i = 0; i < LT_num; i++) {
         if (LTtab[i].addr != -1) {
             fprintf(symtab_output_file, "%s\t%04X\t%d\n", LTtab[i].name, LTtab[i].addr, i);
@@ -573,31 +577,34 @@ void make_symtab_output(uchar *file_name) {
     fclose(symtab_output_file);
 }
 
-int is_first_write = 1;
+
 void write_intermediate_file(uchar *str, int locctr)
 {
-FILE *intermediate_file;
+    FILE *intermediate_file;
+    if (is_first_write)
+    {
+        intermediate_file = fopen("intermediate.txt", "w");
+        if (intermediate_file == NULL)
+        {
+            fprintf(stderr, "Error: Unable to open intermediate file for writing.\n");
+            return;
+        }
+        is_first_write = 0;
+    }
+    else
+    {
+        intermediate_file = fopen("intermediate.txt", "a");
+        if (intermediate_file == NULL)
+        {
+            fprintf(stderr, "Error: Unable to open intermediate file for writing.\n");
+            return;
+        }
+    }
 
-if (is_first_write)
-{
-    intermediate_file = fopen("intermediate.txt", "w");
-    is_first_write = 0;
-}
-else
-{
-    intermediate_file = fopen("intermediate.txt", "a");
+    fprintf(intermediate_file, "%04X %s\n", locctr, str);
+    fclose(intermediate_file);
 }
 
-if (intermediate_file == NULL)
-{
-    fprintf(stderr, "Error: Unable to open intermediate file for writing.");
-    return;
-}
-
-fprintf(intermediate_file, "%04X %s\n", locctr, str);
-
-fclose(intermediate_file);
-}
 int is_digit(char c) {
     return c >= '0' && c <= '9';
 }

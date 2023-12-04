@@ -68,10 +68,12 @@ static int sym_index;
 static int locctr; // loc값 
 static int starting_address;
 static int program_length;
+static int sec;
 //--------------
-
+static int is_first_write = 1;
 static uchar *input_file; // 입력 파일 input.txt
 static uchar *output_file;// 출력 파일 output.txt
+
 int init_my_assembler(void); // 어셈블러 초기화 파일 init_inst_file()과 init_input_file()도 포함
 int init_inst_file(uchar *inst_file); //inst.data를 읽고 inst_table[]에 저장
 int init_input_file(uchar *input_file); //intput.txt를 읽고 input_data[]에 저장
@@ -108,7 +110,7 @@ void make_objectcode_output(uchar *file_name, uchar *list_name); // 파일 output.
 
 
 void write_intermediate_file(uchar *str, int locctr);
-void add_to_symtab(const uchar *label, int loc, int is_equ);
+void add_to_symtab(const uchar *label, int loc, int is_equ, int sec);
 int search_symtab(uchar *symbol);
 int tok_search_opcode(uchar *str);
 struct literal_unit {
