@@ -805,13 +805,15 @@ void initialize_text_record(uchar text_record[MAX_LINES][10], int *text_record_s
 }
 
 // Function to write the End record to the object program
-void write_end_record(uchar *file_name, int starting_address) {
+void write_end_record(FILE *file_name, int starting_address) {
     fprintf(object_code_file, "E%06X\n", starting_address);
 }
 
 // Helper function to write a Modification record to the object program
-void write_modification_record(FILE *output_file, int address, int length) {
-    fprintf(output_file, "M%06X%02X\n", address, length);
+void write_modification_record(FILE *output_file, int start, int length) {
+    start = mod_records[mod_record_count].start;
+    length = mod_records[mod_record_count].length;
+    fprintf(output_file, "M%06X%02X\n", start, length);
 }
 
 // Helper function to write EXTDEF and EXTREF records
@@ -848,6 +850,12 @@ static int assem_pass2(void) {
     uchar text_record[MAX_LINES][10];
     int text_record_start, text_record_length;
 
+    //Initialize modification record table
+    for(int i = 0; i < MAX_LINES; i++) {
+    mod_records[i].start = 0;
+    mod_records[i].length = 0;
+    }
+
     // Initialize variables for LTORG processing
     int ltorg_address = -1;
 
@@ -855,6 +863,12 @@ static int assem_pass2(void) {
     int csect_start_address = -1;
     int csect_length = 0;
     uchar csect_name[MAX_LINES];
+    
+    //Initialize variables for ExtRef and ExtDef handling
+    uchar extdef_records[MAX_LINES][10];
+    uchar extref_records[MAX_LINES][10];
+    extRefCount = 0;
+    extDefCount = 0;
 
     // Process lines until OPCODE is 'END'
     while (token_line < MAX_LINES) {
@@ -927,7 +941,7 @@ static int assem_pass2(void) {
 
 
     // Write EXTDEF and EXTREF records
-    //write_extdef_extref_records(extDef, extDefCount , extRef, extRefCount);
+    write_extdef_extref_records(extdef_records, extDefCount , extref_records, extRefCount);
 
     // Write the End record
     write_end_record(object_code_file, csect_start_address);
