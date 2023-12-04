@@ -384,6 +384,9 @@ static int assem_pass1(void) {
         sym_table[i].sec = -1;
         sym_table[i].addr = -1;
         sym_table[i].symbol[0] = '\0';
+        LTtab[i].name[0] = "\0";
+        LTtab[i].addr = -1;
+        LTtab[i].leng = 0;
     }
 
 
@@ -498,14 +501,20 @@ static int assem_pass1(void) {
                 if (operand[0] == '=' && (operand[1] == 'C' || operand[1] == 'X')) {
                     // Found a literal
                     int length = calculate_byte_length(operand);
-                 
+                    for (int i = 0; i < LT_num; i++) {
+                    if (strcmp(LTtab[i].name, operand) == 0) {
+                        fprintf(stderr, "Error: Duplicate symbol found - %s\n", operand);
+                        // Handle the error as needed
+                        }
+                    }
                         // Add the literal to the literal table
                         LTtab[LT_num].leng = length;
                         strcpy(LTtab[LT_num].name, operand);
                         LTtab[LT_num].addr = -1;  // Not assigned an address yet
                         LT_num++;
-                }
-            }
+                        }
+                    }
+            
             
 
             // Check for the "END" directive to exit the loop
