@@ -483,7 +483,7 @@ static int assem_pass1(void) {
                     locctr += calculate_byte_length(token_table[token_line]->operand[0]);
                 } // Check for LTORG directive
                  if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
-                handle_ltorg_directive();
+                    handle_ltorg_directive();
                 } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
                 // Process EXTREF directive
                 for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
@@ -671,26 +671,39 @@ int evaluate_expression(uchar *expr) {
 
 
 void make_objectcode_output(uchar *file_name, uchar *list_name) {
-          // Open the object code output file
-    object_code_file = fopen(file_name, "w");
-    if (object_code_file == NULL) {
-        fprintf(stderr, "Error: Unable to open object code output file for writing.\n");
-        return;
+    // Open the object code output file
+   if (first_write)
+    {
+        object_code_file = fopen(file_name, "w");
+        listing_file = fopen(list_name, "w");
+        if (object_code_file == NULL)
+        {
+            fprintf(stderr, "Error: Unable to open objfile and lstfile for writing.\n");
+            fclose(object_code_file);
+            fclose(listing_file);
+            exit(1);
+        }
+        first_write = 0;
+    }
+    else
+    {
+        object_code_file = fopen(file_name, "a");
+        listing_file = fopen(list_name, "a");
+        if (object_code_file == NULL)
+        {
+            fprintf(stderr, "Error: Unable to open objfile and lstfile for writing.\n");
+            fclose(object_code_file);
+            fclose(listing_file);
+            exit(1);
+        }
     }
 
-     // Open the assembly listing file
-    listing_file = fopen(list_name, "w");
-    if (listing_file == NULL) {
-        fprintf(stderr, "Error: Unable to open assembly listing file for writing.\n");
-        fclose(object_code_file);
-        return; 
-    }
+
 }
 
 // Function to generate object code based on the instruction format
-void generate_object_code(int is_extended, int opcode_index, int locctr) {
+void generate_object_code(int format, int opcode_index, int locctr, int objcount, uchar text_record[MAX_LINES][10]) {
     int object_code;
-    int format = inst_table[opcode_index]->format;
 
     // Check for format 1 instruction
     if (format == 1) {
@@ -710,7 +723,7 @@ void generate_object_code(int is_extended, int opcode_index, int locctr) {
         int nixbpe = 0;
 
         // Set 'n' bit
-        if (is_extended || token_table[token_line]->operand[0][0] == '#') {
+        if (format == 4 || token_table[token_line]->operand[0][0] == '#') {
             nixbpe |= 1 << 5;
         }
 
@@ -725,7 +738,7 @@ void generate_object_code(int is_extended, int opcode_index, int locctr) {
         }
 
         int disp;
-        if (is_extended) {
+        if (format == 4) {
             // Format 4: 20-bit address in operand field
             nixbpe |= 1 << 1;  // Set 'b' bit
             nixbpe |= 1;       // Set 'p' bit
@@ -752,18 +765,17 @@ void generate_object_code(int is_extended, int opcode_index, int locctr) {
     }
 
     // Store the object code in the array
-    sprintf(obj_codes[obj_code_count].code, "%06X", object_code);
-    obj_codes[obj_code_count].address = locctr;
-    obj_code_count++;
+    sprintf(obj_codes[objcount].code, "%06X", object_code);
+    obj_codes[objcount].address = locctr;
+
+    // Add object code to Text record
+    strcat(text_record[1], obj_codes[objcount].code);
+    text_record[0][0] = '\0';  // Clear the temporary storage for constants
 }
 
 // Helper function to write a Text record to the object program
-void write_text_record(FILE *output_file, int start_address, int length, uchar text_record[MAX_LINES][10]) {
-    fprintf(output_file, "T%06X%02X", start_address, length / 2);
-    for (int i = 0; i < length / 2; ++i) {
-        fprintf(output_file, "%s", text_record[i]);
-    }
-    fprintf(output_file, "\n");
+void write_text_record(int start_address, int length) {
+    fprintf(object_code_file, "T%06X%02X%s\n", start_address, length / 2, text_record[1]);
 }
 
 // Helper function to convert constant to object code
@@ -791,49 +803,54 @@ void write_listing_line(uchar *line, int locctr, uchar *object_code) {
 }
 
 // Function to write the Header record to the object program
-void write_header_record(uchar *file_name, uchar *program_name, int starting_address, int program_length) {
+void write_header_record(uchar *program_name, int starting_address, int program_length) {
     fprintf(object_code_file, "H%-6s%06X%06X\n", program_name, starting_address, program_length);
 }
 
 // Function to initialize a Text record
-void initialize_text_record(uchar text_record[MAX_LINES][10], int *text_record_start, int *text_record_length, int locctr) {
-    *text_record_start = locctr;
-    *text_record_length = 0;
+void initialize_text_record(int locctr) {
     for (int i = 0; i < MAX_LINES; ++i) {
         text_record[i][0] = '\0';
     }
+    text_record[0][0] = '\0';
+    text_record[1][0] = '\0';
 }
 
 // Function to write the End record to the object program
-void write_end_record(FILE *file_name, int starting_address) {
+void write_end_record(int starting_address) {
     fprintf(object_code_file, "E%06X\n", starting_address);
 }
 
 // Helper function to write a Modification record to the object program
-void write_modification_record(FILE *output_file, int start, int length) {
-    start = mod_records[mod_record_count].start;
-    length = mod_records[mod_record_count].length;
-    fprintf(output_file, "M%06X%02X\n", start, length);
+void write_modification_record(int start, int length) {
+    fprintf(object_code_file, "M%06X%02X\n", start, length);
+}
+
+// Helper function to write modification records to object program
+void write_modification_records() {
+    for (int i = 0; i < mod_record_count; ++i) {
+        write_modification_record(mod_records[i].start, mod_records[i].length);
+    }
 }
 
 // Helper function to write EXTDEF and EXTREF records
-void write_extdef_extref_records(uchar extdef_records[MAX_LINES][10], int extdef_count,
-                                uchar extref_records[MAX_LINES][10], int extref_count) {
-    // Write EXTDEF records
-    if (extdef_count > 0) {
+void write_extdef_extref_records(uchar *record_type) {
+    // Write EXTDEF or EXTREF records
+    if (strcmp(record_type, "D") == 0 && extDefCount > 0) {
         fprintf(object_code_file, "D");
-        for (int i = 0; i < extdef_count; ++i) {
-            fprintf(object_code_file, "%-6s%06X", extdef_records[i], 0); // Assume all addresses are 0 for simplicity
-        }
-        fprintf(object_code_file, "\n");
-    }
 
-    // Write EXTREF records
-    if (extref_count > 0) {
-        fprintf(object_code_file, "R");
-        for (int i = 0; i < extref_count; ++i) {
-            fprintf(object_code_file, "%-6s", extref_records[i]);
+        for (int i = 0; i < extDefCount; ++i) {
+            fprintf(object_code_file, "%-6s%06X", extDef[i].symbol, extDef[i].addr);
         }
+
+        fprintf(object_code_file, "\n");
+    } else if (strcmp(record_type, "R") == 0 && extRefCount > 0) {
+        fprintf(object_code_file, "R");
+
+        for (int i = 0; i < extRefCount; ++i) {
+            fprintf(object_code_file, "%-6s", extRef[i].symbol);
+        }
+
         fprintf(object_code_file, "\n");
     }
 }
@@ -842,6 +859,8 @@ void write_extdef_extref_records(uchar extdef_records[MAX_LINES][10], int extdef
 static int assem_pass2(void) {
     // Reset variables for pass 2
     obj_code_count = 0;
+    mod_record_count = 0;
+    token_line = 0;
 
     // Initialize the object code output and listing files
     make_objectcode_output("objectcode.txt", "listing.txt");
@@ -850,25 +869,13 @@ static int assem_pass2(void) {
     uchar text_record[MAX_LINES][10];
     int text_record_start, text_record_length;
 
-    //Initialize modification record table
-    for(int i = 0; i < MAX_LINES; i++) {
-    mod_records[i].start = 0;
-    mod_records[i].length = 0;
-    }
-
-    // Initialize variables for LTORG processing
-    int ltorg_address = -1;
-
     // Initialize variables for control section handling
-    int csect_start_address = -1;
-    int csect_length = 0;
-    uchar csect_name[MAX_LINES];
-    
-    //Initialize variables for ExtRef and ExtDef handling
-    uchar extdef_records[MAX_LINES][10];
-    uchar extref_records[MAX_LINES][10];
-    extRefCount = 0;
-    extDefCount = 0;
+    control_section_start_address = -1;
+    control_section_length = 0;
+
+    // Initialize variables for EXTDEF and EXTREF
+    int extDefCount = 0;
+    int extRefCount = 0;
 
     // Process lines until OPCODE is 'END'
     while (token_line < MAX_LINES) {
@@ -881,70 +888,94 @@ static int assem_pass2(void) {
 
             if (opcode_index != -1) {
                 int format = inst_table[opcode_index]->format;
-                if (strcmp(token_table[token_line]->operator, "END") == 0){
-                    break;
+
+                // Handle START directive
+                if (strcmp(token_table[token_line]->operator, "START") == 0) {
+                    // Extract starting address from operand
+                    starting_address = strtol(token_table[token_line]->operand[0], NULL, 16);
+                    // Write the Header record
+                    write_header_record(token_table[token_line]->label, starting_address, program_length);
+                    token_line++;
+                    continue;  // Skip to the next iteration
                 }
+
                 // Handle directives
-                if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
-                    // Handle WORD directive
-                    generate_object_code(0, opcode_index, locctr);
-                } if (strcmp(token_table[token_line]->operator, "RESB") == 0 ||
-                           strcmp(token_table[token_line]->operator, "RESW") == 0) {
-                    // Handle RESB and RESW directives
-                    initialize_text_record(text_record, &text_record_start, &text_record_length, locctr);
-                } if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
-                    // Handle BYTE directive
-                    convert_constant_to_object_code(token_table[token_line]->operand[0], text_record[text_record_length]);
-                    text_record_length++;
-                } if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
-                    // Handle LTORG directive
-                    initialize_text_record(text_record, &text_record_start, &text_record_length, locctr);
-                    handle_ltorg_directive();
-                    ltorg_address = locctr;
-                } if (strcmp(token_table[token_line]->operator, "CSECT") == 0) {
-                    // Handle CSECT directive
-                    if (csect_start_address != -1) {
-                        // Write the last text record of the previous control section
-                        write_text_record(object_code_file, text_record_start, text_record_length, text_record);
-                        initialize_text_record(text_record, &text_record_start, &text_record_length, locctr);
+                if (format == 3 || format == 4) {
+                    // Handle instructions with format 3/4
+                    // Search SYMTAB for OPERAND and store symbol value as operand address
+                    operand_address = search_symtab(token_table[token_line]->operand[0]);
+
+                    if (operand_address != -1) {
+                        generate_object_code(format, opcode_index, operand_address, obj_code_count, text_record);
+                    } else {
+                        
+                        // Store 0 as operand address
+                        operand_address = 0;
+                        printf("Error: Symbol %s not found in SYMTAB\n", token_table[token_line]->operand[0]);
+
+                    }
+                } else if (strcmp(token_table[token_line]->operator, "BYTE") == 0 ||
+                           strcmp(token_table[token_line]->operator, "WORD") == 0) {
+                    // Handle BYTE and WORD directives
+                    // Convert constant to object code
+                    convert_constant_to_object_code(token_table[token_line]->operand[0], text_record[0]);
+                    
+                    // Add object code to Text record
+                    strcat(text_record[1], text_record[0]);
+                    
+                    // Check if object code will fit into the current Text record
+                    if (strlen(text_record[1]) / 2 >= MAX_TEXT_RECORD_LENGTH) {
+                        // Write the Text record to object program
+                        write_text_record(text_record_start, text_record_length);
+                        initialize_text_record(locctr);
                     }
 
-                    // Update control section variables
-                    csect_start_address = locctr;
-                    csect_length = 0;
-                    strcpy(csect_name, token_table[token_line]->label);
-                } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0 ||
-                           strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
-                    // Handle EXTREF and EXTDEF directives
-                    // These directives have already been processed in pass 1, so no additional action is needed in pass 2.
-                } if (format == 3 || format == 4) {
-                    // Handle instructions with format 3/4
-                    generate_object_code(format == 4, opcode_index, locctr);
-                    if (locctr - ltorg_address >= LTORG_LENGTH) {
-                        // If the length exceeds LTORG_LENGTH, write the text record
-                        write_text_record(object_code_file, text_record_start, text_record_length, text_record);
-                        initialize_text_record(text_record, &text_record_start, &text_record_length, locctr);
-                        ltorg_address = locctr;
+                    // Write listing line
+                    write_listing_line(current_line, locctr, text_record[0]);
+                } else if (strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
+                    // Handle EXTDEF directive
+                    // Record the symbols defined in EXTDEF
+                    for (int i = 0; i < 4; ++i) {
+                        strcpy(extDef[extDefCount].symbol, token_table[token_line]->operand[i]);
+                        extDef[extDefCount].addr = 0;  // You may need to update this with the actual address
+                        extDefCount++;
                     }
+                     // Write Define (EXTDEF) records
+                    write_extdef_extref_records("D");
+                } else if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
+                    // Handle EXTREF directive
+                    // Record the symbols referenced in EXTREF
+                    for (int i = 0; i < 3; ++i) {
+                        strcpy(extRef[extRefCount].symbol, token_table[token_line]->operand[i]);
+                        extRefCount++;
+                    }
+                    // Write Refer (EXTREF) records
+                    write_extdef_extref_records("R");
                 }
             }
+        }
+
+        // Check for END directive
+        if (strcmp(token_table[token_line]->operator, "END") == 0) {
+            // Write last Text record to object program
+            write_text_record(text_record_start, text_record_length);
+
+            // Write End record to object program
+            write_end_record(starting_address);
+
+            // Write last listing line
+            write_listing_line("", locctr, "");
+
+            // Write modification records
+            write_modification_records();
+
+            // Break out of the loop
+            break;
         }
 
         // Read Next
         token_line++;
     }
-
-    // Write the last text record
-    if (csect_start_address != -1) {
-        write_text_record(object_code_file, text_record_start, text_record_length, text_record);
-    }
-
-
-    // Write EXTDEF and EXTREF records
-    write_extdef_extref_records(extdef_records, extDefCount , extref_records, extRefCount);
-
-    // Write the End record
-    write_end_record(object_code_file, csect_start_address);
 
     // Close the output files
     fclose(object_code_file);
@@ -952,4 +983,5 @@ static int assem_pass2(void) {
 
     return 0;
 }
+
 

@@ -1,0 +1,3 @@
+INPUT	BYTE	X'F1'	             0019    
+MAXLEN	WORD	BUFEND-BUFFER     0019    
+                              0019    

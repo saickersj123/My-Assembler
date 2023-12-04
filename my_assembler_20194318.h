@@ -71,6 +71,7 @@ static int program_length;
 static int sec;
 //--------------
 static int is_first_write = 1;
+static int first_write = 1;
 static uchar *input_file; // 입력 파일 input.txt
 static uchar *output_file;// 출력 파일 output.txt
 
@@ -152,7 +153,7 @@ object_code obj_codes[MAX_LINES];
 static int obj_code_count;
 FILE *object_code_file;
 FILE *listing_file;
-
+static int operand_address;
 #define LTORG_LENGTH 30
 
 // Define a structure for the modification records
@@ -163,9 +164,9 @@ typedef struct {
 
 // Define an array to store modification records
 modification mod_records[MAX_LINES];
-
+uchar text_record[MAX_LINES][10];
 // Define a counter for modification records
-static int mod_record_count = 0;
+static int mod_record_count;
 
-int control_section_start_address = -1;
-int control_section_length = 0;
+int control_section_start_address;
+int control_section_length;
