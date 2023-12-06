@@ -6,6 +6,7 @@
 
 
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec) {
+
     // Check for duplicate symbol
     for (int i = 0; i < sym_index; i++) {
         if (strcmp(sym_table[i].symbol, label) == 0 && sym_table[i].sec == sec) {
@@ -44,6 +45,7 @@ void add_to_symtab(const uchar *label, int loc, int is_equ, int sec) {
     sec++;
 }
 
+
 int search_literal(uchar *operand) {
     for (int i = 0; i < LT_num; ++i) {
         if (strcmp(LTtab[i].name, operand) == 0) {
@@ -57,6 +59,22 @@ int search_literal(uchar *operand) {
 
 int calculate_byte_length(uchar *operand) {
         if (operand[0] == '=') {
+            if (operand[1] == 'C' || operand[1] == 'c') {
+                // Count the characters between single quotes
+                int length = 0;
+                for (int i = 3; operand[i] != '\''; ++i) {
+                    length++;
+                }
+                    return length;
+                } else if (operand[1] == 'X' || operand[1] == 'x') { // Count the characters between single quotes
+                // Each hexadecimal digit requires 4 bits, so divide the length by 2
+                    int length = 0;
+                    for (int i = 3; operand[i] != '\''; ++i) {
+                    length++;
+                }
+                    return (length + 1) / 2; // Adjust for hexadecimal format
+                } 
+
         // Literal processing
         int literal_index = search_literal(operand);
         if (literal_index != -1) {
@@ -66,15 +84,15 @@ int calculate_byte_length(uchar *operand) {
             fprintf(stderr, "Error: Undefined literal - %s\n", operand);
             return -1;
         }
-
-    }else if (operand[0] == 'C' || operand[0] == 'c') {
+    }
+    if (operand[0] == 'C' || operand[0] == 'c') {
         // Count the characters between single quotes
         int length = 0;
         for (int i = 2; operand[i] != '\''; ++i) {
             length++;
         }
         return length;
-    } else if (operand[0] == 'X' || operand[0] == 'x') {
+    } if (operand[0] == 'X' || operand[0] == 'x') {
         // Count the characters between single quotes
         // Each hexadecimal digit requires 4 bits, so divide the length by 2
         int length = 0;
@@ -193,11 +211,12 @@ int token_parsing(uchar *str) {
         fprintf(stderr, "Error: Memory allocation failed.\n");
         return -1;
     }
+    /*
     token_table[token_line]->label = NULL;
     token_table[token_line]->operator = NULL;
     for (int i = 0; i < MAX_OPERAND; i++) {
     token_table[token_line]->operand[i][0] = '\0';
-    }
+    }*/
     //token_table[token_line]->comment[0] = '\0';
 
     // Check comments and empty Line 
@@ -214,7 +233,7 @@ int token_parsing(uchar *str) {
 
     if (is_operator == 0) {
         // If the first token is operator
-        //token_table[token_line]->label = strdup("\0");
+        token_table[token_line]->label = NULL;
         token_table[token_line]->operator = strdup(token_str);
         token_str = strtok(NULL, " \t"); // Skip parsing operator
     } else if(is_operator == 1){
@@ -270,6 +289,8 @@ int token_parsing(uchar *str) {
     
     free(scopy);
 
+    
+
     // Test output
     printf("Line %d\n", token_line + 1);
     printf("Label: %s\n", token_table[token_line]->label);
@@ -279,7 +300,7 @@ int token_parsing(uchar *str) {
         printf("  %s\n", token_table[token_line]->operand[i]);
     }
     //printf("Comment: %s\n", token_table[token_line]->comment);
-
+    
     return 0;
 }
 
@@ -339,37 +360,50 @@ void handle_extref(uchar *symbol) {
 
 // Function to handle EQU directive
 void handle_equ_directive(uchar *label, uchar *operand) {
-     if (strcmp(operand, "*") == 0) {
-        // Set the address of the label to the current LOCCTR
-        add_to_symtab(label, locctr, 0, sec);
+    int equ_value;
+
+    // Check if the operand is "*"
+    if (strcmp(operand, "*") == 0) {
+        // Operand is "*", refer to the location counter (locctr)
+        equ_value = locctr;
     } else {
-    int equ_value = evaluate_expression(operand);
-        if (equ_value != -1) {
-        add_to_symtab(label, equ_value, 1, sec); // The third argument (is_equ) is set to 1
-        }
+        // Operand is an expression, evaluate it
+        equ_value = evaluate_expression(operand);
+        locctr = equ_value; // Update the location counter with the evaluated expression
     }
+        add_to_symtab(label, locctr, 1, sec); // The third argument (is_equ) is set to 1
 }
+
 
 // Function to handle LTORG directive
 void handle_ltorg_directive(void) {
-   int literal_length = 0;
+    int literal_length = 0;
+    int current_pool = -1;  // Track the current LTORG pool
 
     // Iterate through the literal table
     for (int i = 0; i < LT_num; i++) {
         // Check if the literal has been assigned an address
         if (LTtab[i].addr == -1) {
-            // If not assigned, assign the next available address
+            // If not assigned, assign the next available address in the current LTORG pool
+            if (current_pool == -1) {
+                // Start a new LTORG pool
+                current_pool = locctr;
+            }
+
             LTtab[i].addr = locctr + literal_length;
             literal_length += LTtab[i].leng;
-
             // Update the literal address in the intermediate file
-            write_intermediate_file("", LTtab[i].addr);
+            write_intermediate_file(LTtab[i].name, LTtab[i].addr);
+        } else {
+            // Literal has already been assigned an address, so reset the LTORG pool
+            current_pool = -1;
         }
     }
 
     // Update the location counter with the total length of literals
-    locctr += literal_length;
+    locctr = locctr + literal_length;
 }
+
 
 static int assem_pass1(void) {
     locctr = 0;
@@ -384,11 +418,10 @@ static int assem_pass1(void) {
         sym_table[i].sec = -1;
         sym_table[i].addr = -1;
         sym_table[i].symbol[0] = '\0';
-        LTtab[i].name[0] = "\0";
+        LTtab[i].name[0] = '\0';
         LTtab[i].addr = -1;
         LTtab[i].leng = 0;
     }
-
 
     // Read the first input line
     uchar *current_line = input_data[0];
@@ -418,9 +451,10 @@ static int assem_pass1(void) {
     }
 
     // Process lines until OPCODE is 'END'
-    while (token_line < MAX_LINES) {
+    while (token_line < line_num) {
         current_line = input_data[token_line];
         token_parsing(current_line);
+
         if (token_table[token_line] != NULL) {
 
             // Check for CSECT directive
@@ -437,93 +471,81 @@ static int assem_pass1(void) {
                 token_line++;
                 continue;  // Skip the rest of the loop for CSECT
             }
-
-            // Add the label to the symbol table
-            if (token_table[token_line]->label != NULL) {
-                add_to_symtab(token_table[token_line]->label, locctr, 0, sec);
-            }
-
             // Check for EQU directive
             if (strcmp(token_table[token_line]->operator, "EQU") == 0) {
                 handle_equ_directive(token_table[token_line]->label, token_table[token_line]->operand[0]);
-                // Update locctr with the evaluated value from EQU directive
-                locctr = sym_table[sym_index - 1].addr;  // Update locctr to the EQU value
-                   // Write line to intermediate file after updating locctr
-                   
-            write_intermediate_file(current_line, locctr);
-            } else {
+            }
+            // Add the label to the symbol table
+            if (token_table[token_line]->label != NULL) {
+                add_to_symtab(token_table[token_line]->label, locctr, 0, sec);
+            }     
+
             // Write line to intermediate file for other directives and instructions
             write_intermediate_file(current_line, locctr);
-             }
              
-
-            // Check for EXTDEF and EXTREF directives
-            if (strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
-                // Process EXTDEF directive
-                for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
-                    handle_extdef(token_table[token_line]->operand[i], locctr);
-                }
-            } 
-             else {
                 int opcode_index = search_opcode(token_table[token_line]->operator);
 
                 if (opcode_index != -1) {
 
                     // Check for 4-format instruction
                     if (token_table[token_line]->operator[0] == '+') {
-                        locctr += 4; 
-                    } else if (inst_table[opcode_index]->format > 0) {
+                        locctr += 4;
+                        
+                    } else {
                         locctr += inst_table[opcode_index]->format;
                     }
                     
-                } if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
+                if (strcmp(token_table[token_line]->operator, "WORD") == 0) {
                     locctr += 3;
+                    
                 } if (strcmp(token_table[token_line]->operator, "RESW") == 0) {
                     locctr += 3 * atoi(token_table[token_line]->operand[0]);
+                   
                 } if (strcmp(token_table[token_line]->operator, "RESB") == 0) {
                     locctr += atoi(token_table[token_line]->operand[0]);
+                  
                 } if (strcmp(token_table[token_line]->operator, "BYTE") == 0) {
                     locctr += calculate_byte_length(token_table[token_line]->operand[0]);
-                } // Check for LTORG directive
+                  
+                } 
                  if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
                     handle_ltorg_directive();
                 } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
-                // Process EXTREF directive
-                for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
+                    // Process EXTREF directive
+                    for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
                     handle_extref(token_table[token_line]->operand[i]);
                     } 
+                }
+                // Check for the "END" directive to exit the loop
+                if (strcmp(token_table[token_line]->operator, "END") == 0) {
+                    handle_ltorg_directive();
+                    break;
                 } 
             }
-
-             // Check for literals and add them to the literal table
+            // Check for literals and add them to the literal table
             for (int i = 0; i < MAX_OPERAND; ++i) {
                 uchar *operand = token_table[token_line]->operand[i];
                 if (operand[0] == '=' && (operand[1] == 'C' || operand[1] == 'X')) {
-                    // Found a literal
+                // Found a literal
                     int length = calculate_byte_length(operand);
-                    for (int i = 0; i < LT_num; i++) {
-                    if (strcmp(LTtab[i].name, operand) == 0) {
-                        fprintf(stderr, "Error: Duplicate symbol found - %s\n", operand);
-                        // Handle the error as needed
+                    int duplicate_found = 0;  // Flag to track duplicate literals
+                    for (int j = 0; j < LT_num; j++) {
+                        if (strcmp(LTtab[j].name, operand) == 0) {
+                            fprintf(stderr, "Error: Duplicate literal found - %s\n", operand);
+                            duplicate_found = 1;
+                            // Handle the error as needed
+                            break;  // No need to check further
                         }
                     }
+                    if (!duplicate_found) {
                         // Add the literal to the literal table
                         LTtab[LT_num].leng = length;
                         strcpy(LTtab[LT_num].name, operand);
                         LTtab[LT_num].addr = -1;  // Not assigned an address yet
                         LT_num++;
-                        }
                     }
-            
-            
-
-            // Check for the "END" directive to exit the loop
-            if (strcmp(token_table[token_line]->operator, "END") == 0) {
-                handle_ltorg_directive();
-                break;
+                }
             }
-            
-
 
         }
         //Read Next
@@ -531,7 +553,7 @@ static int assem_pass1(void) {
 
     }
 
-    int program_length = locctr - starting_address;
+    program_length = locctr - starting_address;
     make_symtab_output("symtab.txt");
 
     return 0;
@@ -614,69 +636,47 @@ void write_intermediate_file(uchar *str, int locctr)
     fclose(intermediate_file);
 }
 
-int is_digit(char c) {
-    return c >= '0' && c <= '9';
-}
-
+// Function to evaluate an expression
 int evaluate_expression(uchar *expr) {
-    // Tokenize the expression based on operators (+, -, *, /)
-    char *token = strtok(expr, "+-*/");
-    int result = 0;
+    // Tokenize the expression based on the '-' operator
+    char *token = strtok(expr, "-");
 
-    while (token != NULL) {
-        // If the token is '*', replace it with the current location counter
-        if (strcmp(token, "*") == 0) {
-            result = locctr;
-        } else {
-            // If the token is a symbol, get its value
-            int value;
-            if (isalpha(token[0])) {
-                value = search_symtab(token);
-                if (value == -1) {
-                    // Symbol not found, handle error
-                    fprintf(stderr, "Error: Undefined symbol - %s\n", token);
-                    return -1;
-                }
-            } else {
-                // If the token is a constant, convert it to an integer
-                value = atoi(token);
-            }
-
-            // Determine the operator and perform the operation
-            char *op = strpbrk(expr, "+-*/");
-            if (op != NULL) {
-                switch (*op) {
-                    case '+':
-                        result += value;
-                        break;
-                    case '-':
-                        result -= value;
-                        break;
-                    case '*':
-                        result *= value;
-                        break;
-                    case '/':
-                        if (value != 0) {
-                            result /= value;
-                        } else {
-                            // Division by zero, handle error
-                            fprintf(stderr, "Error: Division by zero\n");
-                            return -1;
-                        }
-                        break;
-                }
-            } else {
-                // If there are no more operators, the current value is the final result
-                result = value;
-            }
+    // Parse the first operand (BUFEND)
+    int operand1 = -1;
+    if (token != NULL) {
+        operand1 = search_symtab(token);
+        if (operand1 == -1) {
+            // Handle the case where the symbol is not found in the symbol table
+            fprintf(stderr, "Error: Symbol not found - %s\n", token);
+            return -1;
         }
-
-        // Move to the next token
-        token = strtok(NULL, "+-*/");
+    } else {
+        // Handle the case where the expression is not properly formatted
+        fprintf(stderr, "Error: Invalid expression format - %s\n", expr);
+        return -1;
     }
 
-    return result;
+    // Parse the second operand 
+    token = strtok(NULL, " ");
+    int operand2 = -1;
+    if (token != NULL) {
+        operand2 = search_symtab(token);
+        if (operand2 == -1) {
+            // Handle the case where the symbol is not found in the symbol table
+            fprintf(stderr, "Error: Symbol not found - %s\n", token);
+            return -1;
+        }
+    } else {
+        // Handle the case where the expression is not properly formatted
+        fprintf(stderr, "Error: Invalid expression format - %s\n", expr);
+        return -1;
+    }
+
+    // Return the result of the subtraction operation
+    return operand1 - operand2;
 }
+
+
 
 
 void make_objectcode_output(uchar *file_name, uchar *list_name) {

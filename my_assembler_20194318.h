@@ -40,6 +40,7 @@ struct token_unit
 	uchar *operator;
 	uchar operand[MAX_OPERAND][20];
 	uchar comment[100];
+	int addr;
 	// 다음과제에 사용될 변수
 	//uchar nixbpe;
 };
@@ -109,7 +110,7 @@ addresses to be inserted
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name, uchar *list_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
 
-
+//From this line, they are my own functions, variables, ADT
 void write_intermediate_file(uchar *str, int locctr);
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec);
 int search_symtab(uchar *symbol);
@@ -117,7 +118,7 @@ int tok_search_opcode(uchar *str);
 struct literal_unit {
     uchar name[20];
     int leng;
-    int addr; // -1 if not assigned an address yet
+    int addr;// -1 if not assigned an address yet
 };
 
 // Maximum number of literals (adjust as needed)

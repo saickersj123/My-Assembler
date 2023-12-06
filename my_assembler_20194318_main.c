@@ -7,19 +7,21 @@ int main(void){
     }
 
     //Pass 1 수행
-    printf("Pass 1 started.\n");
+    printf("\nPass 1 started.\n");
     if (assem_pass1() != 0) {
         fprintf(stderr, "Pass 1 failed.\n");
         return 1;
     }
+    printf("\nPass 1 Ended.\n");
     // Pass 2 수행
-    printf("Pass 2 started.\n"); 
+    printf("\nPass 2 started.\n"); 
    if (assem_pass2() != 0) {
         fprintf(stderr, "Pass 1 failed.\n");
         return 1;
     }
+    printf("\nPass 2 Ended.\n");
     //print success message
-    printf("Assembler successfully completed both passes.\n");
-    
+    printf("\nAssembler successfully completed both passes.\n");
+
     return 0;
 }
