@@ -103,10 +103,6 @@ int calculate_byte_length(uchar *operand) {
     } 
 }
 
-void calculate_program_length(void) {
-    program_length = locctr - starting_address;
-}
-
 int search_symtab(uchar *symbol) {
     for (int i = 0; i < sym_index; ++i) {
         if (strcmp(sym_table[i].symbol, symbol) == 0) {
@@ -114,6 +110,24 @@ int search_symtab(uchar *symbol) {
         }
     }
     return -1; // Symbol not found
+}
+
+int search_extRtab(uchar *symbol) {
+    for (int i = 0; i < MAX_EXTREF; ++i) {
+        if (strcmp(extRef[i].symbol, symbol) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int search_extDtab(uchar *symbol) {
+    for (int i = 0; i < MAX_EXTDEF; ++i) {
+        if (strcmp(extDef[i].symbol, symbol) == 0) {
+            return  extDef[i].addr;
+        }
+    }
+    return -1;
 }
 
 int init_my_assembler(void){
@@ -348,15 +362,34 @@ int tok_search_opcode(uchar *str) {
 
 // Function to handle EXTDEF directive
 void handle_extdef(uchar *symbol) {
-        strcpy(extDef[extDefCount].symbol, symbol);
-        extDef[extDefCount].addr = search_symtab(symbol);
-        extDefCount++;
+    // Check for duplicates before adding
+    for (int i = 0; i < extDefCount; i++) {
+        if (strcmp(extDef[i].symbol, symbol) == 0) {
+            fprintf(stderr, "Error: Duplicate EXTDEF found - %s\n", symbol);
+            // Handle the error as needed
+            return;
+        }
+    }
+    // Add the symbol to the EXTDEF table
+    strcpy(extDef[extDefCount].symbol, symbol);
+    extDef[extDefCount].addr = search_symtab(symbol);
+    extDefCount++;
 }
 
 // Function to handle EXTREF directive
-void handle_extref(uchar *symbol) {
-        strcpy(extRef[extRefCount].symbol, symbol);
-        extRefCount++;
+void handle_extref(uchar *symbol, int section) {
+    // Check for duplicates before adding
+    for (int i = 0; i < extRefCount; i++) {
+        if (strcmp(extRef[i].symbol, symbol) == 0 && extRef[i].sec == section) {
+            fprintf(stderr, "Error: Duplicate EXTREF found - %s\n", symbol);
+            // Handle the error as needed
+            return;
+        }
+    }
+    // Add the symbol to the EXTREF table
+    extRef[extRefCount].sec = section;
+    strcpy(extRef[extRefCount].symbol, symbol);
+    extRefCount++;
 }
 
 // Function to handle EQU directive
@@ -432,7 +465,7 @@ static int assem_pass1(void) {
         csect_table[i].program_length = 0;
     }
 
-    for (int i = 0; i < MAX_EXTDEF; ++i) {
+    for (int i = 0; i < MAX_EXTDEF; i++) {
         extDef[i].addr = -1;
         extDef[i].sec = -1;
         extDef[i].symbol[0] = '\0';
@@ -499,6 +532,13 @@ static int assem_pass1(void) {
             if (strcmp(token_table[token_line]->operator, "EQU") == 0) {
                 handle_equ_directive(token_table[token_line]->label, token_table[token_line]->operand[0]);
             }
+            if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
+                    // Process EXTREF directive
+                    for (int i = 0; i < MAX_OPERAND &&
+                    token_table[token_line]->operand[i][0] != '\0'; i++) {
+                    handle_extref(token_table[token_line]->operand[i],sec);
+                    } 
+            }
             // Add the label to the symbol table
             if (token_table[token_line]->label != NULL) {
                 add_to_symtab(token_table[token_line]->label, locctr, 0, sec);
@@ -535,11 +575,6 @@ static int assem_pass1(void) {
                 } 
                  if (strcmp(token_table[token_line]->operator, "LTORG") == 0) {
                     handle_ltorg_directive();
-                } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
-                    // Process EXTREF directive
-                    for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; i++) {
-                    handle_extref(token_table[token_line]->operand[i]);
-                    } 
                 }
 
                 // Check for the "END" directive to exit the loop
@@ -908,9 +943,7 @@ static int assem_pass2(void) {
     int text_record_start, text_record_length;
 
     // Initialize variables for control section handling
-    control_section_start_address = -1;
-    control_section_length = 0;
-
+    sec = 0;
     // Initialize variables for EXTDEF and EXTREF
     extDefCount = 0;
 
@@ -930,11 +963,10 @@ static int assem_pass2(void) {
                     // Extract starting address from operand
                     starting_address = strtol(current_line->operand[0], NULL, 16);
                     // Write the Header record
-                    write_header_record(current_line->label, starting_address, csect_table[0].program_length);
+                    write_header_record(current_line->label, starting_address, csect_table[sec].program_length);
                     token_line++;
                     continue;  // Skip to the next iteration
                 }
-
                 // Handle directives
                 if (format == 3 || format == 4) {
                     // Handle instructions with format 3/4

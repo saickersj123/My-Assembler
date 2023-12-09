@@ -25,11 +25,12 @@ int main(void){
     for(int i =0; i < sec + 1; i++){
         printf("length of section %d : %04X\n", i, csect_table[i].program_length);
     }
-    for(int i = 0; i < 3; i++){
+    for(int i = 0; i < MAX_EXTDEF; i++){
     printf("extdef %d  addr : %04X name : %s\n", i, extDef[i].addr, extDef[i].symbol);
     }
-    for(int i = 0; i < 2; i++){
-    printf("extref %d  name : %s\n", i, extRef[i].symbol);
+    for(int i = 0; i < MAX_EXTREF; i++){
+    printf("extref %d  name : %s sec : %d\n", i, extRef[i].symbol, extRef[i].sec);
     }
+    printf("extref name : %s\n", extRef[2].symbol);
     return 0;
 }
