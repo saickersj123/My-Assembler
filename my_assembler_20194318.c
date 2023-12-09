@@ -347,9 +347,10 @@ int tok_search_opcode(uchar *str) {
 }
 
 // Function to handle EXTDEF directive
-void handle_extdef(uchar *symbol, int addr) {
+void handle_extdef(uchar *symbol) {
         strcpy(extDef[extDefCount].symbol, symbol);
-        extDef[extDefCount].addr = addr;
+        extDef[extDefCount].addr = search_symtab(symbol);
+        extDefCount++;
 }
 
 // Function to handle EXTREF directive
@@ -392,6 +393,7 @@ void handle_ltorg_directive(void) {
 
             LTtab[i].addr = locctr + literal_length;
             literal_length += LTtab[i].leng;
+
             // Update the literal address in the intermediate file
             write_intermediate_file(LTtab[i].name, LTtab[i].addr);
         } else {
@@ -408,10 +410,10 @@ void handle_ltorg_directive(void) {
 static int assem_pass1(void) {
     locctr = 0;
     starting_address = 0;
-    program_length = 0;
     token_line = 0;
     sym_index = 0;
     sec = 0;
+    extRefCount = 0;
 
     // Initialize the symbol table
     for (int i = 0; i < MAX_LINES; ++i) {
@@ -421,6 +423,22 @@ static int assem_pass1(void) {
         LTtab[i].name[0] = '\0';
         LTtab[i].addr = -1;
         LTtab[i].leng = 0;
+    }
+
+    // Initialize the csect_table array
+    for (int i = 0; i < MAX_CSECT; ++i) {
+        csect_table[i].sec = -1;
+        //csect_table[i].locctr = -1;
+        csect_table[i].program_length = 0;
+    }
+
+    for (int i = 0; i < MAX_EXTDEF; ++i) {
+        extDef[i].addr = -1;
+        extDef[i].sec = -1;
+        extDef[i].symbol[0] = '\0';
+        extRef[i].addr = -1;
+        extRef[i].sec = -1;
+        extRef[i].symbol[0] = '\0';
     }
 
     // Read the first input line
@@ -436,17 +454,15 @@ static int assem_pass1(void) {
         locctr = starting_address;
 
         // Write line to intermediate file
+        token_table[token_line]->addr = locctr; 
         write_intermediate_file(current_line, locctr);
 
-        /*// Add the label to the symbol table
-        if (token_table[0]->label != NULL) {
-            add_to_symtab(token_table[0]->label, locctr, 0);
-        }*/
         token_line++;
 
     } else {
         // If no START directive, initialize LOCCTR to 0
         locctr = 0;
+        token_table[token_line]->addr = locctr; 
         write_intermediate_file(current_line, locctr);
     }
 
@@ -459,15 +475,23 @@ static int assem_pass1(void) {
 
             // Check for CSECT directive
             if (strcmp(token_table[token_line]->operator, "CSECT") == 0) {
+                if(locctr < token_table[token_line - 2]->addr) {
+                    csect_table[sec].program_length = token_table[token_line - 2]->addr;
+                }else{
+                    csect_table[sec].program_length = locctr;
+                }
+                csect_table[sec].sec = sec;
                 // Start a new section, reset the program counter
                 locctr = strtol(token_table[token_line]->operand[0], NULL, 16);
                 sec++;
+
                 // Add the section name to the symbol table
                 if (token_table[token_line]->label != NULL) {
                     add_to_symtab(token_table[token_line]->label, locctr, 0, sec);
                 }
                 // Write line to intermediate file
                 write_intermediate_file(current_line, locctr);
+                token_table[token_line]->addr = locctr; 
                 token_line++;
                 continue;  // Skip the rest of the loop for CSECT
             }
@@ -482,6 +506,7 @@ static int assem_pass1(void) {
 
             // Write line to intermediate file for other directives and instructions
             write_intermediate_file(current_line, locctr);
+            token_table[token_line]->addr = locctr;
              
                 int opcode_index = search_opcode(token_table[token_line]->operator);
 
@@ -512,16 +537,20 @@ static int assem_pass1(void) {
                     handle_ltorg_directive();
                 } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
                     // Process EXTREF directive
-                    for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
+                    for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; i++) {
                     handle_extref(token_table[token_line]->operand[i]);
                     } 
                 }
+
                 // Check for the "END" directive to exit the loop
                 if (strcmp(token_table[token_line]->operator, "END") == 0) {
+                    csect_table[sec].program_length = locctr;
                     handle_ltorg_directive();
                     break;
                 } 
             }
+
+            
             // Check for literals and add them to the literal table
             for (int i = 0; i < MAX_OPERAND; ++i) {
                 uchar *operand = token_table[token_line]->operand[i];
@@ -553,9 +582,9 @@ static int assem_pass1(void) {
 
     }
 
-    program_length = locctr - starting_address;
+    csect_table[sec].program_length = locctr;
     make_symtab_output("symtab.txt");
-
+    
     return 0;
 }
 
@@ -713,7 +742,7 @@ void make_objectcode_output(uchar *file_name, uchar *list_name) {
 // Function to generate object code based on the instruction format
 void generate_object_code(int format, int opcode_index, int locctr, int objcount, uchar text_record[MAX_LINES][10]) {
     int object_code;
-
+    int nixbpe;
     // Check for format 1 instruction
     if (format == 1) {
         // Format 1: opcode only
@@ -729,7 +758,7 @@ void generate_object_code(int format, int opcode_index, int locctr, int objcount
     // Check for format 3/4 instruction
     else {
         // Format 3/4: opcode + (nixbpe) + displacement
-        int nixbpe = 0;
+        nixbpe = 0;
 
         // Set 'n' bit
         if (format == 4 || token_table[token_line]->operand[0][0] == '#') {
@@ -776,7 +805,7 @@ void generate_object_code(int format, int opcode_index, int locctr, int objcount
     // Store the object code in the array
     sprintf(obj_codes[objcount].code, "%06X", object_code);
     obj_codes[objcount].address = locctr;
-
+    token_table[token_line]->nixbpe = nixbpe;
     // Add object code to Text record
     strcat(text_record[1], obj_codes[objcount].code);
     text_record[0][0] = '\0';  // Clear the temporary storage for constants
@@ -883,27 +912,25 @@ static int assem_pass2(void) {
     control_section_length = 0;
 
     // Initialize variables for EXTDEF and EXTREF
-    int extDefCount = 0;
-    int extRefCount = 0;
+    extDefCount = 0;
 
     // Process lines until OPCODE is 'END'
     while (token_line < MAX_LINES) {
         // Read the next input line
-        uchar *current_line = input_data[token_line];
-        token_parsing(current_line);
-
-        if (token_table[token_line] != NULL) {
-            int opcode_index = search_opcode(token_table[token_line]->operator);
+        token *current_line = token_table[token_line];
+        
+        if (current_line != NULL) {
+            int opcode_index = search_opcode(current_line->operator);
 
             if (opcode_index != -1) {
                 int format = inst_table[opcode_index]->format;
 
                 // Handle START directive
-                if (strcmp(token_table[token_line]->operator, "START") == 0) {
+                if (strcmp(current_line->operator, "START") == 0) {
                     // Extract starting address from operand
-                    starting_address = strtol(token_table[token_line]->operand[0], NULL, 16);
+                    starting_address = strtol(current_line->operand[0], NULL, 16);
                     // Write the Header record
-                    write_header_record(token_table[token_line]->label, starting_address, program_length);
+                    write_header_record(current_line->label, starting_address, csect_table[0].program_length);
                     token_line++;
                     continue;  // Skip to the next iteration
                 }
@@ -912,7 +939,7 @@ static int assem_pass2(void) {
                 if (format == 3 || format == 4) {
                     // Handle instructions with format 3/4
                     // Search SYMTAB for OPERAND and store symbol value as operand address
-                    operand_address = search_symtab(token_table[token_line]->operand[0]);
+                    operand_address = search_symtab(current_line->operand[0]);
 
                     if (operand_address != -1) {
                         generate_object_code(format, opcode_index, operand_address, obj_code_count, text_record);
@@ -923,7 +950,7 @@ static int assem_pass2(void) {
                         printf("Error: Symbol %s not found in SYMTAB\n", token_table[token_line]->operand[0]);
 
                     }
-                } else if (strcmp(token_table[token_line]->operator, "BYTE") == 0 ||
+                } if (strcmp(token_table[token_line]->operator, "BYTE") == 0 ||
                            strcmp(token_table[token_line]->operator, "WORD") == 0) {
                     // Handle BYTE and WORD directives
                     // Convert constant to object code
@@ -941,23 +968,17 @@ static int assem_pass2(void) {
 
                     // Write listing line
                     write_listing_line(current_line, locctr, text_record[0]);
-                } else if (strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
+                } if (strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
                     // Handle EXTDEF directive
                     // Record the symbols defined in EXTDEF
-                    for (int i = 0; i < 4; ++i) {
+                    for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
                         strcpy(extDef[extDefCount].symbol, token_table[token_line]->operand[i]);
-                        extDef[extDefCount].addr = 0;  // You may need to update this with the actual address
+                        extDef[extDefCount].addr = search_symtab(token_table[token_line]->operand[i]);
                         extDefCount++;
                     }
                      // Write Define (EXTDEF) records
                     write_extdef_extref_records("D");
-                } else if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
-                    // Handle EXTREF directive
-                    // Record the symbols referenced in EXTREF
-                    for (int i = 0; i < 3; ++i) {
-                        strcpy(extRef[extRefCount].symbol, token_table[token_line]->operand[i]);
-                        extRefCount++;
-                    }
+                } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
                     // Write Refer (EXTREF) records
                     write_extdef_extref_records("R");
                 }

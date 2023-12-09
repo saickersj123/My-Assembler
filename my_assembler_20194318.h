@@ -41,8 +41,7 @@ struct token_unit
 	uchar operand[MAX_OPERAND][20];
 	uchar comment[100];
 	int addr;
-	// 다음과제에 사용될 변수
-	//uchar nixbpe;
+	int nixbpe;
 };
 
 
@@ -70,6 +69,15 @@ static int locctr; // loc값
 static int starting_address;
 static int program_length;
 static int sec;
+
+// Define the structure for the program section
+struct csect {
+    int sec;             // Section number
+	//int locctr;          // Location counter
+    int program_length;  // Program length
+};
+#define MAX_CSECT 10
+struct csect csect_table[MAX_CSECT];
 //--------------
 static int is_first_write = 1;
 static int first_write = 1;
@@ -134,8 +142,8 @@ static int evaluate_expression(uchar *expr);
 
 symbol extDef[MAX_EXTDEF];
 symbol extRef[MAX_EXTDEF];
-int extDefCount = 0;
-int extRefCount = 0;
+static int extDefCount;
+static int extRefCount;
 
 
 #define MAX_OBJ_CODES 1000
