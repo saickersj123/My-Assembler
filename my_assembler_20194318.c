@@ -112,9 +112,9 @@ int search_symtab(uchar *symbol) {
     return -1; // Symbol not found
 }
 
-int search_extRtab(uchar *symbol) {
+int search_extRtab_sec(int section) {
     for (int i = 0; i < MAX_EXTREF; ++i) {
-        if (strcmp(extRef[i].symbol, symbol) == 0) {
+        if (section == extRef[i].sec) {
             return i;
         }
     }
@@ -510,7 +510,7 @@ static int assem_pass1(void) {
             if (strcmp(token_table[token_line]->operator, "CSECT") == 0) {
                 if(locctr < token_table[token_line - 2]->addr) {
                     csect_table[sec].program_length = token_table[token_line - 2]->addr;
-                }else{
+                } else {
                     csect_table[sec].program_length = locctr;
                 }
                 csect_table[sec].sec = sec;
@@ -775,7 +775,8 @@ void make_objectcode_output(uchar *file_name, uchar *list_name) {
 }
 
 // Function to generate object code based on the instruction format
-void generate_object_code(int format, int opcode_index, int locctr, int objcount, uchar text_record[MAX_LINES][10]) {
+void generate_object_code(token *tok, int format, int opcode_index, int locctr,
+ int objcount, uchar text_record[MAX_LINES][10]) {
     int object_code;
     int nixbpe;
     // Check for format 1 instruction
@@ -786,8 +787,8 @@ void generate_object_code(int format, int opcode_index, int locctr, int objcount
     // Check for format 2 instruction
     else if (format == 2) {
         // Format 2: opcode + registers
-        int reg1 = atoi(token_table[token_line]->operand[0]);
-        int reg2 = atoi(token_table[token_line]->operand[1]);
+        int reg1 = atoi(tok->operand[0]);
+        int reg2 = atoi(tok->operand[1]);
         object_code = (inst_table[opcode_index]->op << 8) + (reg1 << 4) + reg2;
     }
     // Check for format 3/4 instruction
@@ -796,17 +797,17 @@ void generate_object_code(int format, int opcode_index, int locctr, int objcount
         nixbpe = 0;
 
         // Set 'n' bit
-        if (format == 4 || token_table[token_line]->operand[0][0] == '#') {
+        if (format == 4 || tok->operand[0][0] == '#') {
             nixbpe |= 1 << 5;
         }
 
         // Set 'i' bit
-        if (token_table[token_line]->operand[0][0] != '#') {
+        if (tok->operand[0][0] != '#') {
             nixbpe |= 1 << 4;
         }
 
         // Set 'x' bit
-        if (token_table[token_line]->operand[1] != NULL && strcmp(token_table[token_line]->operand[1], ",X") == 0) {
+        if (tok->operand[1] != NULL && strcmp(tok->operand[1], ",X") == 0) {
             nixbpe |= 1 << 3;
         }
 
@@ -817,10 +818,10 @@ void generate_object_code(int format, int opcode_index, int locctr, int objcount
             nixbpe |= 1;       // Set 'p' bit
 
             // Calculate the 20-bit address
-            disp = strtol(token_table[token_line]->operand[0] + 1, NULL, 16);
+            disp = strtol(tok->operand[0] + 1, NULL, 16);
         } else {
             // Format 3: 12-bit displacement from base or PC
-            int target_address = search_symtab(token_table[token_line]->operand[0]);
+            int target_address = search_symtab(tok->operand[0]);
 
             // Check if base relative addressing is possible
             if (target_address != -1 && target_address >= locctr - 2048 && target_address <= locctr + 2047) {
@@ -840,7 +841,7 @@ void generate_object_code(int format, int opcode_index, int locctr, int objcount
     // Store the object code in the array
     sprintf(obj_codes[objcount].code, "%06X", object_code);
     obj_codes[objcount].address = locctr;
-    token_table[token_line]->nixbpe = nixbpe;
+    tok->nixbpe = nixbpe;
     // Add object code to Text record
     strcat(text_record[1], obj_codes[objcount].code);
     text_record[0][0] = '\0';  // Clear the temporary storage for constants
@@ -919,19 +920,19 @@ void write_extdef_extref_records(uchar *record_type) {
         fprintf(object_code_file, "\n");
     } else if (strcmp(record_type, "R") == 0 && extRefCount > 0) {
         fprintf(object_code_file, "R");
-
         for (int i = 0; i < extRefCount; ++i) {
+            if(extRef[i].sec == sec)
             fprintf(object_code_file, "%-6s", extRef[i].symbol);
         }
-
         fprintf(object_code_file, "\n");
     }
 }
 
+
 // Function to handle pass 2 of the assembler
 static int assem_pass2(void) {
     // Reset variables for pass 2
-    obj_code_count = 0;
+    obj_count = 0;
     mod_record_count = 0;
     token_line = 0;
 
@@ -939,7 +940,6 @@ static int assem_pass2(void) {
     make_objectcode_output("objectcode.txt", "listing.txt");
 
     // Initialize variables for text record generation
-    uchar text_record[MAX_LINES][10];
     int text_record_start, text_record_length;
 
     // Initialize variables for control section handling
@@ -951,82 +951,98 @@ static int assem_pass2(void) {
     while (token_line < MAX_LINES) {
         // Read the next input line
         token *current_line = token_table[token_line];
-        
-        if (current_line != NULL) {
-            int opcode_index = search_opcode(current_line->operator);
-
-            if (opcode_index != -1) {
-                int format = inst_table[opcode_index]->format;
-
                 // Handle START directive
                 if (strcmp(current_line->operator, "START") == 0) {
                     // Extract starting address from operand
                     starting_address = strtol(current_line->operand[0], NULL, 16);
                     // Write the Header record
                     write_header_record(current_line->label, starting_address, csect_table[sec].program_length);
+                    // Initialize first Text record
+                    initialize_text_record(locctr);
+                    write_listing_line(input_data[token_line], locctr, text_record[0]);
                     token_line++;
                     continue;  // Skip to the next iteration
                 }
+                if (strcmp(current_line->operator, "CSECT") == 0) {
+                    sec++;
+                    // Initialize variables for the new section
+                    csect_start_address = starting_address;
+                    csect_length = csect_table[sec].program_length;
+
+                    // Write Header record for the new section
+                    fprintf(object_code_file, "\n");
+                    write_header_record(current_line->label, csect_start_address, csect_length);
+                    // Initialize first Text record
+                    initialize_text_record(locctr);                
+                    token_line++;
+                    continue;  // Skip the rest of the loop for CSECT
+                } 
+                if (strcmp(current_line->operator, "EXTDEF") == 0) {
+                    // Handle EXTDEF directive
+                    // Record the symbols defined in EXTDEF
+                    for (int i = 0; i < MAX_OPERAND && current_line->operand[i][0] != '\0'; ++i) {
+                        strcpy(extDef[extDefCount].symbol, current_line->operand[i]);
+                        extDef[extDefCount].addr = search_symtab(current_line->operand[i]);
+                        extDefCount++;
+                    }
+                    // Write Define (EXTDEF) records
+                    write_extdef_extref_records("D");
+                } if (strcmp(current_line->operator, "EXTREF") == 0) {
+                    // Write Refer (EXTREF) records
+                    write_extdef_extref_records("R");
+                }
+
+        if (current_line != NULL) {
+            int opcode_index = search_opcode(current_line->operator);
+
+            if (opcode_index != -1) {
+                int format = inst_table[opcode_index]->format;
+
                 // Handle directives
-                if (format == 3 || format == 4) {
+                if (format >= 3) {
                     // Handle instructions with format 3/4
                     // Search SYMTAB for OPERAND and store symbol value as operand address
                     operand_address = search_symtab(current_line->operand[0]);
 
                     if (operand_address != -1) {
-                        generate_object_code(format, opcode_index, operand_address, obj_code_count, text_record);
+                        generate_object_code(current_line,format, opcode_index, operand_address, obj_count, text_record);
                     } else {
-                        
                         // Store 0 as operand address
                         operand_address = 0;
-                        printf("Error: Symbol %s not found in SYMTAB\n", token_table[token_line]->operand[0]);
-
+                        fprintf(stderr, "Error: Symbol %s not found in SYMTAB\n", current_line->operand[0]);
+                        // Set error flag (undefined symbol)
                     }
-                } if (strcmp(token_table[token_line]->operator, "BYTE") == 0 ||
-                           strcmp(token_table[token_line]->operator, "WORD") == 0) {
+                } if (strcmp(current_line->operator, "BYTE") == 0 ||
+                           strcmp(current_line->operator, "WORD") == 0) {
                     // Handle BYTE and WORD directives
                     // Convert constant to object code
-                    convert_constant_to_object_code(token_table[token_line]->operand[0], text_record[0]);
-                    
+                    convert_constant_to_object_code(current_line->operand[0], text_record[0]);
+
                     // Add object code to Text record
                     strcat(text_record[1], text_record[0]);
-                    
-                    // Check if object code will fit into the current Text record
-                    if (strlen(text_record[1]) / 2 >= MAX_TEXT_RECORD_LENGTH) {
-                        // Write the Text record to object program
-                        write_text_record(text_record_start, text_record_length);
-                        initialize_text_record(locctr);
                     }
 
-                    // Write listing line
-                    write_listing_line(current_line, locctr, text_record[0]);
-                } if (strcmp(token_table[token_line]->operator, "EXTDEF") == 0) {
-                    // Handle EXTDEF directive
-                    // Record the symbols defined in EXTDEF
-                    for (int i = 0; i < MAX_OPERAND && token_table[token_line]->operand[i][0] != '\0'; ++i) {
-                        strcpy(extDef[extDefCount].symbol, token_table[token_line]->operand[i]);
-                        extDef[extDefCount].addr = search_symtab(token_table[token_line]->operand[i]);
-                        extDefCount++;
+                // Check if object code will fit into the current Text record
+                if (strlen(text_record[1]) / 2 >= MAX_TEXT_RECORD_LENGTH) {
+                    // Write the Text record to the object program
+                    write_text_record(text_record_start, text_record_length);
+                    // Initialize new Text record
+                    initialize_text_record(locctr);
                     }
-                     // Write Define (EXTDEF) records
-                    write_extdef_extref_records("D");
-                } if (strcmp(token_table[token_line]->operator, "EXTREF") == 0) {
-                    // Write Refer (EXTREF) records
-                    write_extdef_extref_records("R");
-                }
+
+                // Write listing line
+                write_listing_line(input_data[token_line], locctr, text_record[0]);
+                
             }
         }
 
         // Check for END directive
-        if (strcmp(token_table[token_line]->operator, "END") == 0) {
-            // Write last Text record to object program
+        if (strcmp(current_line->operator, "END") == 0) {
+            // Write last Text record to the object program
             write_text_record(text_record_start, text_record_length);
 
-            // Write End record to object program
+            // Write End record to the object program
             write_end_record(starting_address);
-
-            // Write last listing line
-            write_listing_line("", locctr, "");
 
             // Write modification records
             write_modification_records();
@@ -1045,5 +1061,6 @@ static int assem_pass2(void) {
 
     return 0;
 }
+
 
 

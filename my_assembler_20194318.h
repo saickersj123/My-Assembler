@@ -71,13 +71,13 @@ static int program_length;
 static int sec;
 
 // Define the structure for the program section
-struct csect {
+typedef struct {
     int sec;             // Section number
 	//int locctr;          // Location counter
     int program_length;  // Program length
-};
+} csect;
 #define MAX_CSECT 10
-struct csect csect_table[MAX_CSECT];
+csect csect_table[MAX_CSECT];
 //--------------
 static int is_first_write = 1;
 static int first_write = 1;
@@ -123,15 +123,16 @@ void write_intermediate_file(uchar *str, int locctr);
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec);
 int search_symtab(uchar *symbol);
 int tok_search_opcode(uchar *str);
-struct literal_unit {
+typedef struct {
     uchar name[20];
     int leng;
+	int value;
     int addr;// -1 if not assigned an address yet
-};
+} LT;
 
 // Maximum number of literals (adjust as needed)
 #define MAX_LITERALS 100
-struct literal_unit LTtab[MAX_LITERALS];
+LT LTtab[MAX_LITERALS];
 static int LT_num;
 
 // Function to evaluate an arithmetic expression
@@ -153,13 +154,14 @@ static int extRefCount;
 typedef struct {
     int address;   // Address of the object code
     uchar code[10]; // Object code representation
+	int sec; // Section of the object code
 } object_code;
 
 // Define an array to store object code information
 object_code obj_codes[MAX_LINES];
 
 // Define a counter for object code records
-static int obj_code_count;
+static int obj_count;
 FILE *object_code_file;
 FILE *listing_file;
 static int operand_address;
@@ -169,6 +171,7 @@ static int operand_address;
 typedef struct {
     int start;   // Starting address of modification
     int length;  // Length of modification
+	int sec; // Section of modification
 } modification;
 
 // Define an array to store modification records
@@ -177,5 +180,5 @@ uchar text_record[MAX_LINES][10];
 // Define a counter for modification records
 static int mod_record_count;
 
-int control_section_start_address;
-int control_section_length;
+int csect_start_address;
+int csect_length;

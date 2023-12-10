@@ -1,3 +1,50 @@
-‡éÆ                           001C    
-PêÆ                           001C    
-                              001C    
+COPY	START	0	                 001C    
+	EXTDEF	BUFFER,BUFEND,LENGTH  001C    
+	EXTREF	RDREC,WRREC           001C    
+FIRST	STL	RETADR	             001C    
+CLOOP  	+JSUB	RDREC	          001C    
+	LDA	LENGTH	                  001C    
+	COMP	#0		                    001C    
+	JEQ	ENDFIL	                  001C    
+	+JSUB	WRREC	                 001C    
+	J	CLOOP	                     001C    
+ENDFIL	LDA	=C'EOF'	           001C    
+	STA	BUFFER                   001C    
+	LDA	#3	                      001C    
+	STA	LENGTH                   001C    
+	+JSUB	WRREC	                 001C    
+	J	@RETADR	                   001C    
+RETADR	RESW	1                 001C    
+LENGTH	RESW	1	                001C    
+	LTORG                        001C    
+BUFFER	RESB	4096	             001C    
+BUFEND	EQU	*                  001C    
+MAXLEN	EQU	BUFEND-BUFFER	     001C    
+	EXTREF	BUFFER,LENGTH,BUFEND  001C    
+	CLEAR	X	                     001C    
+	CLEAR	A	                     001C    
+	CLEAR	S	                     001C    
+	LDT	MAXLEN                   001C    
+RLOOP	TD	INPUT	               001C    
+	JEQ	RLOOP	                   001C    
+	RD	INPUT	                    001C    
+	COMPR	A,S	                   001C    
+	JEQ	EXIT	                    001C    
+	+STCH	BUFFER,X	              001C    
+	TIXR	T	                      001C    
+	JLT	RLOOP	                   001C    
+EXIT	+STX	LENGTH	             001C    
+	RSUB		                       001C    
+INPUT	BYTE	X'F1'	             001C    
+MAXLEN	WORD	BUFEND-BUFFER     001C    
+	EXTREF	LENGTH,BUFFER         001C    
+	CLEAR	X	                     001C    
+	+LDT	LENGTH                  001C    
+WLOOP	TD	=X'05'	              001C    
+	JEQ	WLOOP	                   001C    
+	+LDCH	BUFFER,X	              001C    
+	WD	=X'05'	                   001C    
+	TIXR	T	                      001C    
+	JLT	WLOOP	                   001C    
+	RSUB		                       001C    
+	END	FIRST                    001C    
