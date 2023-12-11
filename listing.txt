@@ -1,25 +1,25 @@
 COPY	START	0	                 001C    
 	EXTDEF	BUFFER,BUFEND,LENGTH  001C    
 	EXTREF	RDREC,WRREC           001C    
-FIRST	STL	RETADR	             001C    
-CLOOP  	+JSUB	RDREC	          001C    
-	LDA	LENGTH	                  001C    
-	COMP	#0		                    001C    
-	JEQ	ENDFIL	                  001C    
-	+JSUB	WRREC	                 001C    
-	J	CLOOP	                     001C    
-ENDFIL	LDA	=C'EOF'	           001C    
-	STA	BUFFER                   001C    
-	LDA	#3	                      001C    
-	STA	LENGTH                   001C    
-	+JSUB	WRREC	                 001C    
-	J	@RETADR	                   001C    
-RETADR	RESW	1                 001C    
-LENGTH	RESW	1	                001C    
-	LTORG                        001C    
-BUFFER	RESB	4096	             001C    
-BUFEND	EQU	*                  001C    
-MAXLEN	EQU	BUFEND-BUFFER	     001C    
+FIRST	STL	RETADR	             001C    152000
+CLOOP  	+JSUB	RDREC	          001C    152000
+	LDA	LENGTH	                  001C    152000
+	COMP	#0		                    001C    152000
+	JEQ	ENDFIL	                  001C    152000
+	+JSUB	WRREC	                 001C    152000
+	J	CLOOP	                     001C    152000
+ENDFIL	LDA	=C'EOF'	           001C    152000
+	STA	BUFFER                   001C    152000
+	LDA	#3	                      001C    152000
+	STA	LENGTH                   001C    152000
+	+JSUB	WRREC	                 001C    152000
+	J	@RETADR	                   001C    152000
+RETADR	RESW	1                 001C    152000
+LENGTH	RESW	1	                001C    152000
+	LTORG                        001C    152000
+BUFFER	RESB	4096	             001C    152000
+BUFEND	EQU	*                  001C    152000
+MAXLEN	EQU	BUFEND-BUFFER	     001C    152000
 	EXTREF	BUFFER,LENGTH,BUFEND  001C    
 	CLEAR	X	                     001C    
 	CLEAR	A	                     001C    

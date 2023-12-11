@@ -42,6 +42,7 @@ struct token_unit
 	uchar comment[100];
 	int addr;
 	int nixbpe;
+	int ta;
 };
 
 
@@ -148,8 +149,8 @@ static int extRefCount;
 
 
 #define MAX_OBJ_CODES 1000
-#define MAX_MOD_RECORDS 100
-#define MAX_TEXT_RECORD_LENGTH 100
+#define MAX_MOD_RECORDS 1000
+#define MAX_TEXT_RECORD_LENGTH 1000
 
 typedef struct {
     int address;   // Address of the object code
@@ -176,7 +177,8 @@ typedef struct {
 
 // Define an array to store modification records
 modification mod_records[MAX_LINES];
-uchar text_record[MAX_LINES][10];
+uchar text_record[MAX_LINES][70];
+static int text_record_count;
 // Define a counter for modification records
 static int mod_record_count;
 

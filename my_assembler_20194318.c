@@ -775,10 +775,11 @@ void make_objectcode_output(uchar *file_name, uchar *list_name) {
 }
 
 // Function to generate object code based on the instruction format
-void generate_object_code(token *tok, int format, int opcode_index, int locctr,
- int objcount, uchar text_record[MAX_LINES][10]) {
+void generate_object_code(token *tok, int format, int opcode_index,
+int locctr, int objcount) {
     int object_code;
-    int nixbpe;
+    int nixbpe ;
+    uchar *op = tok->operator;
     // Check for format 1 instruction
     if (format == 1) {
         // Format 1: opcode only
@@ -797,7 +798,7 @@ void generate_object_code(token *tok, int format, int opcode_index, int locctr,
         nixbpe = 0;
 
         // Set 'n' bit
-        if (format == 4 || tok->operand[0][0] == '#') {
+        if ( op[0]=='+'|| tok->operand[0][0] == '@') {
             nixbpe |= 1 << 5;
         }
 
@@ -810,16 +811,16 @@ void generate_object_code(token *tok, int format, int opcode_index, int locctr,
         if (tok->operand[1] != NULL && strcmp(tok->operand[1], ",X") == 0) {
             nixbpe |= 1 << 3;
         }
-
         int disp;
-        if (format == 4) {
+        if (op[0]=='+') {
             // Format 4: 20-bit address in operand field
             nixbpe |= 1 << 1;  // Set 'b' bit
             nixbpe |= 1;       // Set 'p' bit
 
             // Calculate the 20-bit address
             disp = strtol(tok->operand[0] + 1, NULL, 16);
-        } else {
+        } 
+        if (format == 3) {
             // Format 3: 12-bit displacement from base or PC
             int target_address = search_symtab(tok->operand[0]);
 
@@ -840,11 +841,12 @@ void generate_object_code(token *tok, int format, int opcode_index, int locctr,
 
     // Store the object code in the array
     sprintf(obj_codes[objcount].code, "%06X", object_code);
-    obj_codes[objcount].address = locctr;
+    obj_codes[objcount].address = object_code;
     tok->nixbpe = nixbpe;
     // Add object code to Text record
-    strcat(text_record[1], obj_codes[objcount].code);
-    text_record[0][0] = '\0';  // Clear the temporary storage for constants
+    strcat(text_record[text_record_count], obj_codes[objcount].code);
+    text_record_count++;
+    printf("Object code: %06X\n", object_code);
 }
 
 // Helper function to write a Text record to the object program
@@ -857,7 +859,7 @@ void convert_constant_to_object_code(uchar *constant, uchar *object_code) {
     // Extract the content between single quotes and convert accordingly
 
     // Initialize object_code
-    object_code[0] = '\0';
+    object_code[obj_count] = '\0';
 
     if (constant[1] == 'C') {
         // Character constant, convert each character to ASCII and append to object_code
@@ -869,7 +871,8 @@ void convert_constant_to_object_code(uchar *constant, uchar *object_code) {
         for (int i = 3; constant[i] != '\''; ++i) {
             sprintf(object_code, "%s%c", object_code, constant[i]);
         }
-    } 
+    }
+    obj_count++; 
 }
 
 void write_listing_line(uchar *line, int locctr, uchar *object_code) {
@@ -933,6 +936,7 @@ void write_extdef_extref_records(uchar *record_type) {
 static int assem_pass2(void) {
     // Reset variables for pass 2
     obj_count = 0;
+    text_record_count = 0;
     mod_record_count = 0;
     token_line = 0;
 
@@ -959,7 +963,7 @@ static int assem_pass2(void) {
                     write_header_record(current_line->label, starting_address, csect_table[sec].program_length);
                     // Initialize first Text record
                     initialize_text_record(locctr);
-                    write_listing_line(input_data[token_line], locctr, text_record[0]);
+                    write_listing_line(input_data[token_line], locctr, text_record[text_record_count]);
                     token_line++;
                     continue;  // Skip to the next iteration
                 }
@@ -1005,7 +1009,8 @@ static int assem_pass2(void) {
                     operand_address = search_symtab(current_line->operand[0]);
 
                     if (operand_address != -1) {
-                        generate_object_code(current_line,format, opcode_index, operand_address, obj_count, text_record);
+                        generate_object_code(current_line,format, opcode_index, operand_address, obj_count);
+                        write_text_record(text_record_start, text_record_length);
                     } else {
                         // Store 0 as operand address
                         operand_address = 0;
