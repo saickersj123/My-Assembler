@@ -49,7 +49,7 @@ void add_to_symtab(const uchar *label, int loc, int is_equ, int sec) {
 int search_literal(uchar *operand) {
     for (int i = 0; i < LT_num; ++i) {
         if (strcmp(LTtab[i].name, operand) == 0) {
-            // Literal found, return its index
+            // Literal found, return itext_record_start index
             return i;
         }
     }
@@ -57,6 +57,16 @@ int search_literal(uchar *operand) {
     return -1;
 }
 
+int search_literaladdr(uchar *operand) {
+    for (int i = 0; i < LT_num; ++i) {
+        if (strcmp(LTtab[i].name, operand) == 0) {
+            // Literal found, return itext_record_start index
+            return LTtab[i].addr;
+        }
+    }
+    // Literal not found
+    return -1;
+}
 int calculate_byte_length(uchar *operand) {
         if (operand[0] == '=') {
             if (operand[1] == 'C' || operand[1] == 'c') {
@@ -67,7 +77,7 @@ int calculate_byte_length(uchar *operand) {
                 }
                     return length;
                 } else if (operand[1] == 'X' || operand[1] == 'x') { // Count the characters between single quotes
-                // Each hexadecimal digit requires 4 bits, so divide the length by 2
+                // Each hexadecimal digit requires 4 bitext_record_start, so divide the length by 2
                     int length = 0;
                     for (int i = 3; operand[i] != '\''; ++i) {
                     length++;
@@ -94,7 +104,7 @@ int calculate_byte_length(uchar *operand) {
         return length;
     } if (operand[0] == 'X' || operand[0] == 'x') {
         // Count the characters between single quotes
-        // Each hexadecimal digit requires 4 bits, so divide the length by 2
+        // Each hexadecimal digit requires 4 bitext_record_start, so divide the length by 2
         int length = 0;
         for (int i = 2; operand[i] != '\''; ++i) {
             length++;
@@ -103,19 +113,19 @@ int calculate_byte_length(uchar *operand) {
     } 
 }
 
-int search_symtab(uchar *symbol) {
+int search_symtab(uchar *symbol, int section) {
     for (int i = 0; i < sym_index; ++i) {
-        if (strcmp(sym_table[i].symbol, symbol) == 0){
-            return  sym_table[i].addr; // Symbol found, return its index
+        if ((strcmp(sym_table[i].symbol, symbol) == 0) && (sym_table[i].sec == section)){
+            return  sym_table[i].addr; // Symbol found, return itext_record_start index
         }
     }
     return -1; // Symbol not found
 }
 
-int search_extRtab_sec(int section) {
+int search_extRtab(uchar *symbol, int section) {
     for (int i = 0; i < MAX_EXTREF; ++i) {
-        if (section == extRef[i].sec) {
-            return i;
+        if ((strcmp(extRef[i].symbol, symbol) == 0) && (extRef[i].sec == section)) {
+            return extRef[i].addr;
         }
     }
     return -1;
@@ -195,7 +205,7 @@ int init_input_file(uchar *input_file){
 
         // remove \n
         line[strcspn(line, "\n")] = '\0';
-       // Check if the line starts with a dot (comment)
+       // Check if the line startext_record_start with a dot (comment)
         if (line[0] != '.') {
             //Save the input into input_data
             input_data[line_index] = strdup(line);
@@ -233,11 +243,11 @@ int token_parsing(uchar *str) {
     }*/
     //token_table[token_line]->comment[0] = '\0';
 
-    // Check comments and empty Line 
+    // Check commentext_record_start and empty Line 
    if (str[0] == '\0' || str[0] == '\n' || str[0] == '.') {
         return 0;
     }
-    uchar *scopy = strdup((char *) str);
+    uchar *scopy = strdup((uchar *) str);
 
     // Tokenize with \t
     uchar *token_str = strtok(scopy, " \t");
@@ -320,7 +330,7 @@ int token_parsing(uchar *str) {
 
 int search_opcode(uchar *str) {
         if (str == NULL || str[0] == '\0' || str[0] == '.') {
-        // Skip comments and empty lines
+        // Skip commentext_record_start and empty lines
         return -1;
     }
     
@@ -330,7 +340,7 @@ int search_opcode(uchar *str) {
             printf("Operator: %s / ", inst_table[i]->str);
             printf("Format: %d / ", inst_table[i]->format);
             printf("Opcode Value: 0x%02X\n", inst_table[i]->op);
-            return i;  // 검색 성공
+            return i; 
         }
     }
 
@@ -341,7 +351,7 @@ int search_opcode(uchar *str) {
 
 int tok_search_opcode(uchar *str) {
         if (str == NULL || str[0] == '\0' || str[0] == '.') {
-        // Skip comments and empty lines
+        // Skip commentext_record_start and empty lines
         return -1;
     }
     
@@ -372,7 +382,7 @@ void handle_extdef(uchar *symbol) {
     }
     // Add the symbol to the EXTDEF table
     strcpy(extDef[extDefCount].symbol, symbol);
-    extDef[extDefCount].addr = search_symtab(symbol);
+    extDef[extDefCount].addr = search_symtab(symbol, sec);
     extDefCount++;
 }
 
@@ -412,7 +422,7 @@ void handle_equ_directive(uchar *label, uchar *operand) {
 // Function to handle LTORG directive
 void handle_ltorg_directive(void) {
     int literal_length = 0;
-    int current_pool = -1;  // Track the current LTORG pool
+    current_pool = -1;  // Track the current LTORG pool
 
     // Iterate through the literal table
     for (int i = 0; i < LT_num; i++) {
@@ -421,12 +431,12 @@ void handle_ltorg_directive(void) {
             // If not assigned, assign the next available address in the current LTORG pool
             if (current_pool == -1) {
                 // Start a new LTORG pool
-                current_pool = locctr;
+                current_pool = i;
             }
 
             LTtab[i].addr = locctr + literal_length;
             literal_length += LTtab[i].leng;
-
+            LTtab[i].value = current_pool;
             // Update the literal address in the intermediate file
             write_intermediate_file(LTtab[i].name, LTtab[i].addr);
         } else {
@@ -447,16 +457,19 @@ static int assem_pass1(void) {
     sym_index = 0;
     sec = 0;
     extRefCount = 0;
-
+    LT_num = 0;
     // Initialize the symbol table
     for (int i = 0; i < MAX_LINES; ++i) {
         sym_table[i].sec = -1;
         sym_table[i].addr = -1;
         sym_table[i].symbol[0] = '\0';
+    }
+    
+    for(int i = 0; i < MAX_LITERALS; i++){
         LTtab[i].name[0] = '\0';
         LTtab[i].addr = -1;
-        LTtab[i].leng = 0;
-    }
+        LTtab[i].leng = -1;
+    } 
 
     // Initialize the csect_table array
     for (int i = 0; i < MAX_CSECT; ++i) {
@@ -607,6 +620,7 @@ static int assem_pass1(void) {
                         strcpy(LTtab[LT_num].name, operand);
                         LTtab[LT_num].addr = -1;  // Not assigned an address yet
                         LT_num++;
+                        
                     }
                 }
             }
@@ -657,7 +671,7 @@ void make_symtab_output(uchar *file_name) {
     }
 
     fprintf(symtab_output_file, "Symbol\tAddress\tSection\n");
-    fprintf(symtab_output_file, "-----------------------\n");
+    fprintf(symtab_output_file, "-------------------------\n");
 
     for (int i = 0; i < sym_index; i++) {
         if (sym_table[i].addr != -1) {
@@ -666,10 +680,10 @@ void make_symtab_output(uchar *file_name) {
     }
 
     fprintf(symtab_output_file, "\nLiteral\tAddress\tPoolNum\n");
-    fprintf(symtab_output_file, "-----------------------\n");
+    fprintf(symtab_output_file, "----------------------------\n");
     for (int i = 0; i < LT_num; i++) {
         if (LTtab[i].addr != -1) {
-            fprintf(symtab_output_file, "%s\t%04X\t%d\n", LTtab[i].name, LTtab[i].addr, i);
+            fprintf(symtab_output_file, "%s\t%04X\t%d\n", LTtab[i].name, LTtab[i].addr, LTtab[i].value);
         }
     }
     fclose(symtab_output_file);
@@ -706,12 +720,12 @@ void write_intermediate_file(uchar *str, int locctr)
 // Function to evaluate an expression
 int evaluate_expression(uchar *expr) {
     // Tokenize the expression based on the '-' operator
-    char *token = strtok(expr, "-");
+    uchar *token = strtok(expr, "-");
 
     // Parse the first operand (BUFEND)
     int operand1 = -1;
     if (token != NULL) {
-        operand1 = search_symtab(token);
+        operand1 = search_symtab(token, sec);
         if (operand1 == -1) {
             // Handle the case where the symbol is not found in the symbol table
             fprintf(stderr, "Error: Symbol not found - %s\n", token);
@@ -727,7 +741,7 @@ int evaluate_expression(uchar *expr) {
     token = strtok(NULL, " ");
     int operand2 = -1;
     if (token != NULL) {
-        operand2 = search_symtab(token);
+        operand2 = search_symtab(token, sec);
         if (operand2 == -1) {
             // Handle the case where the symbol is not found in the symbol table
             fprintf(stderr, "Error: Symbol not found - %s\n", token);
@@ -795,369 +809,576 @@ int getREGnum(uchar *register_name) {
         return 6;
     } else {
         // Handle an invalid register name (this depends on your error handling strategy)
-        fprintf(stderr, "Error: Invalid register name - %s\n", register_name);
+        fprintf(stderr, "Error: Invalid register name : %s\n", register_name);
         exit(EXIT_FAILURE);
     }
 }
 
 // Function to generate object code based on the instruction format
-void generate_object_code(int format) {
-    int object_code[4] = {0};  // Initialize object code to 0
+int generate_object_code(int format) {
+    int dxx;
     int disp;
     int loc;
+    int loc2;
+    int op_index = search_opcode(token_table[token_line]->operator);
+    int opcode = inst_table[op_index]->op;
+    int lt_index = search_literal(token_table[token_line]->operand[0]);
+    token *ct = token_table[token_line];
+    token *nt = token_table[token_line + 1];
+  
+  switch(format) {
+    case 1: // 1형식 명령어(FIX, FLOAT, HIO, NORM, SIO, TIO)
+      object_code[0] = opcode;
+      object_code[1] = '\0';
+      break;
 
-    switch (format) {
-        case 1: // Format 1: opcode only
-            object_code[0] = token_table[token_line]->operator[0];
-            break;
+    case 2: // 2형식 명령어(operand 형식은 r1 또는 r1,r2 또는 n 또는 r1,n)
+      object_code[0] = opcode;
+      if (ct->operand[0][0] == '\0')
+        printf("Error! Operand expected\n");
 
-        case 2: // Format 2: opcode + registers
-            object_code[0] = token_table[token_line]->operator[0];
+      if (ct->operand[0][0] < 'A') { // op1이 레지스터가 아닌 상수값(n)
+        sscanf(ct->operand[0], "%d", &dxx);
+        object_code[1] = dxx << 4; // n
+      } else {
+        object_code[1] = getREGnum(ct->operand[0]) << 4; // r1
+      }
+      if (ct->operand[1][0] != '\0') {
+        if (ct->operand[1][0] < 'A') { // op2가 레지스터가 아닌 상수값(n)
+          sscanf(ct->operand[1]+1, "%d", &dxx);
+          object_code[1] = object_code[1] | dxx; // n
+        } else {
+          object_code[1] = object_code[1] | getREGnum(ct->operand[1]); // r2
+        }
+      }
+      break;
 
-            if (token_table[token_line]->operand[0][0] < 'A') { // operand가 레지스터가 아닌 경우
-                sscanf(token_table[token_line]->operand[0], "%d", &disp);
-                object_code[1] = disp << 4; // n
-            } else {
-                object_code[1] = getREGnum(token_table[token_line]->operand[0][0]) << 4; // r1
+    case 3: // 3형식 명령어
+      switch (ct->operand[0][0]) {
+        case '#': // 즉시 주소 지정(Immediate addressing)
+          object_code[0] = opcode + 1; // n=0,i=1 이므로 +1 함
+          if (ct->operand[0][1] >= 'A') { // PC 상대주소 + 즉시 주소 지정인 경우(예, #LENGTH)
+            dxx = search_symtab(ct->operand[0]+1, sec);
+            if (dxx == -1)
+              printf("Error: Undefind symbol: %s\n", ct->operand[0]+1);
+            else
+              dxx -= nt->addr; // op1과 다음 명령어를 가리키고 있는 LOCCTR 과의 차이
+            object_code[1] = (dxx >> 8) & 15; // TA 상위 1 니블
+            object_code[1] = object_code[1] | 32; // p=1 (PC 상대주소)
+            object_code[2] = dxx & 255; // TA 하위 2 니블
+          } else { // 상수값
+             sscanf(ct->operand[0]+1, "%d", &dxx);
+             object_code[1] = (dxx >> 8) & 15; // TA 상위 1 니블
+             object_code[2] = dxx & 255; // TA 하위 2 니블
+          }
+          break;
+        case '\0': // operand가 없다(RSUB)
+           object_code[0] = opcode + 3; // n=1,i=1 이므로 +3 함
+           object_code[1] = 0;
+           object_code[2] = 0;
+           break;
+        default:
+          if (ct->operand[0][0] == '@') { // 간접 주소 지정(Indirect addressing)
+            object_code[0] = opcode + 2; // n=1,i=0 이므로 +2 함
+            loc = search_symtab(ct->operand[0]+1, sec);
+            disp =loc - nt->addr; // op1과 다음 명령어를 가리키고 있는 LOCCTR 과의 차이
+          }
+          else if (ct->operand[0][0] == '=') { // 리터럴
+            object_code[0] = opcode + 3; // n=1,i=1 이므로 +3 함
+            loc = LTtab[lt_index].addr; // Literal Table(pool) 에서 검색
+            disp = loc - nt->addr; // op1과 다음 명령어를 가리키고 있는 LOCCTR 과의 차이
+          }
+          else {
+            object_code[0] = opcode + 3; // n=1,i=1 이므로 +3 함
+            loc = search_symtab(ct->operand[0], sec);
+            disp = loc - nt->addr; // op1과 다음 명령어를 가리키고 있는 LOCCTR 과의 차이
+          }
+
+          if (loc < 0) {
+            printf("Error: Undefinded symbol: %s\n", ct->operand[0]);
+            loc = 0;
+          }
+
+          if ((abs(disp) >= 4096) && (loc >= 0)) { // base 상대주소를 사용해야하는 경우
+            disp = abs(BASEADDR - loc);
+            object_code[1] = (disp >> 8) & 15; // TA 상위 1 니블
+            object_code[1] = object_code[1] | 64; // b=1 (base 상대주소)
+            object_code[2] = disp & 255; // TA 하위 2 니블
+            printf("opcode->%s base->%X loc->%X disp->%d\n", opcode, BASEADDR, loc, disp);
+          }
+			else if ((disp < 4096) && (loc >= 0)) {
+            object_code[1] = (disp >> 8) & 15; // TA 상위 1 니블
+            object_code[1] = object_code[1] | 32; // p=1 (PC 상대주소)
+            object_code[2] = disp & 255; // TA 하위 2 니블
+          }
+          else {
+            int ddd;
+            if (ct->operand[0][0] == '@') // Indirect addressing
+              sscanf(ct->operand[0]+1, "%d", &ddd);
+            else
+              sscanf(ct->operand[0], "%d", &ddd);
+            object_code[1] = (ddd >> 8);
+            object_code[2] = ddd & 255;
+          }
+
+          if (ct->operand[1][0] == 'X') // 인덱스 주소 지정
+            object_code[1] = object_code[1] + 128; // x=1
+      }
+    printf("<Format 3> opcode->%s obj->%02X%02X%02X\n", inst_table[op_index]->str, object_code[0], object_code[1], object_code[2]);
+      break;
+
+    case 4: // 4형식
+      switch (ct->operand[0][0]) {
+        case '#': // 즉시 주소 지정(Immediate addressing)
+          object_code[0] = opcode + 1; // n=0,i=1 이므로 +1 함
+          if (ct->operand[0][1] >= 'A') { // PC 상대주소 + 즉시 주소 지정인 경우(예, #LENGTH)
+            dxx = search_symtab(ct->operand[0]+1, sec);
+            if (dxx== -1)
+              printf("Error: Undefind symbol: %s\n", ct->operand[0]+1);
+            else
+              dxx -= nt->addr; // op1과 다음 명령어를 가리키고 있는 LOCCTR 과의 차이
+          } else  // 상수값
+            sscanf(ct->operand[0]+1, "%d", &dxx);
+          object_code[1] = 16; // e=1
+          object_code[2] = (dxx >> 8) & 255; // TA 상위 1 바이트
+          object_code[3] = dxx & 255; // TA 하위 1 바이트
+          break;
+        default:
+          if (ct->operand[0][0] == '@') { // 간접 주소 지정(Indirect addressing)
+            object_code[0] = opcode + 2; // n=1,i=0 이므로 +2 함
+            loc2 = search_symtab(ct->operand[0]+1, sec);
+          }
+          else {
+            object_code[0] = opcode + 3; // n=1,i=1 이므로 +3 함
+            loc2 = search_symtab(ct->operand[0], sec);
+            if (loc2 < 0) { // 현재 섹션에서 찾았는데 없다
+              loc2 = search_extRtab(ct->operand[0], sec); // 외부 참조인지 검사
+              if (loc2 >= 0) {
+                // 수정 레코드(Modification record)에 추가
+                // L2-STARTADDR+1 -> 현 제어섹션의 처음부터 상대적으로 표기된 수정될 필드의 주소
+                // 05 -> 하프 바이트로 나타낸 수정될 레코드의 길이(여기서는 05로 fix시킴)
+                // + -> 수정 플래그(여기서는 +로 fix시킴)
+                sprintf(mod_record[mod_record_count], "M%06X05+%-6s\n", ct->addr-csect_start_address+1, ct->operand[0]);
+                mod_record_count++;
+              }
             }
-
-            if (token_table[token_line]->operand[1][0] == ',') {
-                if (token_table[token_line]->operand[1][1] < 'A') { // op2가 레지스터가 아닌 상수값(n)
-                    sscanf(token_table[token_line]->operand[1] + 1, "%d", &disp);
-                    object_code[1] |= disp; // n
-                } else {
-                    object_code[1] |= getREGnum(token_table[token_line]->operand[1][1]); // r2
-                }
+            if (loc2 < 0) {
+               printf("Error: Undefinded symbol: %s\n", ct->operand[0]);
+               loc2=0;
             }
-            break;
-
-        case 3: // Format 3: opcode + (nixbpe) + displacement
-            switch (token_table[token_line]->operand[0][0]) {
-                case '#': // Immediate addressing
-                    object_code[0] = token_table[token_line]->operator[0] + 1; // n=0, i=1
-                    if (token_table[token_line]->operand[0][1] >= 'A') { // PC relative addressing + Immediate addressing
-                        loc = search_symtab(token_table[token_line]->operand[0] + 1);
-                        if (loc == -1) {
-                            printf("Error: Undefined symbol: %s\n", token_table[token_line]->operand[0] + 1);
-                        } else {
-                            disp = loc - token_table[token_line]->addr;
-                            object_code[1] = (disp >> 8) & 15; // TA upper 4 bits
-                            object_code[1] |= 32; // p=1 (PC relative addressing)
-                            object_code[2] = disp & 255; // TA lower 8 bits
-                        }
-                    } else { // Constant value
-                        sscanf(token_table[token_line]->operand[0] + 1, "%d", &disp);
-                        object_code[1] = (disp >> 8) & 15; // TA upper 4 bits
-                        object_code[2] = disp & 255; // TA lower 8 bits
-                    }
-                    break;
-
-                case '@': // Indirect addressing
-                    object_code[0] = token_table[token_line]->operator[0] + 2; // n=1, i=0
-                    loc = search_symtab(token_table[token_line]->operand[0] + 1);
-                    disp = loc - token_table[token_line]->addr;
-                    break;
-
-                default: // Simple addressing (direct addressing)
-                    object_code[0] = token_table[token_line]->operator[0] + 3; // n=1, i=1
-                    loc = search_symtab(token_table[token_line]->operand[0]);
-                    disp = loc - token_table[token_line]->addr;
-                    break;
-            }
-
-            // Check for base relative addressing
-            if (abs(disp) >= 4096) {
-                disp = abs(BASEADDR - loc);
-                object_code[1] |= 64; // b=1 (base relative addressing)
-            } else {
-                object_code[1] |= 32; // p=1 (PC relative addressing)
-            }
-
-            object_code[2] = (disp >> 8) & 255; // TA upper 4 bits
-            object_code[3] = disp & 255; // TA lower 8 bits
-            break;
-
-        case 4: // Format 4: opcode + (nixbpe) + displacement
-            switch (token_table[token_line]->operand[0][0]) {
-                case '#': // Immediate addressing
-                    object_code[0] = token_table[token_line]->operator[0] + 1; // n=0, i=1
-                    if (token_table[token_line]->operand[0][1] >= 'A') { // PC relative addressing + Immediate addressing
-                        loc = search_symtab(token_table[token_line]->operand[0] + 1);
-                        if (loc == -1) {
-                            printf("Error: Undefined symbol: %s\n", token_table[token_line]->operand[0] + 1);
-                        } else {
-                            disp = loc - token_table[token_line]->addr;
-                        }
-                    } else { // Constant value
-                        sscanf(token_table[token_line]->operand[0] + 1, "%d", &disp);
-                    }
-                    object_code[1] = 16; // e=1
-                    object_code[2] = (disp >> 8) & 255; // TA upper 8 bits
-                    object_code[3] = disp & 255; // TA lower 8 bits
-                    break;
-
-                case '@': // Indirect addressing
-                    object_code[0] = token_table[token_line]->operator[0] + 2; // n=1, i=0
-                    loc = search_symtab(token_table[token_line]->operand[0] + 1);
-                    disp = loc - token_table[token_line]->addr;
-                    break;
-
-            }
-            break;
-    }
-
-    // Store the object code in the array
-    obj_codes[obj_count].address = object_code;
-    obj_codes[obj_count].sec = sec;
-    // Add object code to Text record
-    sprintf(obj_codes[obj_count].code, "%06X", object_code);
-    text_record_count++;
-    printf("line: %d\nObject code: %06X\n", token_line, object_code);
+          }
+          if (loc2 >= 0) {
+            object_code[1] = 16; // e=1
+            object_code[2] = (loc2 >> 8); // TA 상위 1 바이트
+            object_code[3] = loc2 & 255;  // TA 하위 1 바이트
+          }
+          else {
+            int ddd;
+            if (ct->operand[0][0] == '@') // Indirect addressing
+              sscanf(ct->operand[0]+1, "%d", &ddd);
+            else
+              sscanf(ct->operand[0], "%d", &ddd);
+            object_code[1] = 16; // e=1
+            object_code[2] = (ddd >> 8); // TA 상위 1 바이트
+            object_code[3] = ddd & 255;  // TA 하위 1 바이트
+          }
+          if (ct->operand[1][0] == 'X') // 인덱스 주소 지정
+            object_code[1] = object_code[1] + 128; // x=1
+      }
+      printf("<Format 4> opcode->%s obj->%02X%02X%02X%02X\n", inst_table[op_index]->str, object_code[0], object_code[1], object_code[2], object_code[3]);
+      break;
+  }
 }
 
+uchar HEXTAB[]= {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+
+int hexstr2dec(char H)
+{
+  int i;
+  for (i = 0; i <= 15; i++)
+    if (HEXTAB[i] == H)
+      return (i);
+  return (-1);
+}
+
+int write_literal()
+{
+    int n, len=0;
+    token *ct = token_table[token_line];
+    for (; (LT_num < current_pool) && (LTtab[LT_num].value == LT_num); LT_num++) {
+        len = 0;
+    if (LTtab[LT_num].name[1] == 'C') { // 지정한 문자로 초기화되는 바이트 수
+      n = 0;
+      while (LTtab[LT_num].name[n+3] != '\'') {
+        object_code[len] = LTtab[LT_num].name[n+3]; // character를 byte로 환산
+        n++;
+        len++;
+      }
+      object_code[len] = '\0';
+    }
+    else if (LTtab[LT_num].name[1] == 'X') { // 지정한 16진수로 초기화되는 바이트 수
+      n = 0;
+      while (LTtab[LT_num].name[n+3] != '\'') {
+        // 16진수 두 글자를 1 byte로 환산
+        object_code[len] = hexstr2dec(LTtab[LT_num].name[n+3])*16 + hexstr2dec(LTtab[LT_num].name[n+4]);
+        n += 2;
+        len++;
+      }
+      object_code[len] = '\0';
+    }
+    else {
+      sscanf(ct->operand[0]+1, "%d", object_code);
+      len++;
+    }
+
+    if (ct->operand[0][1] != '=')
+      write_listing_line(0);
+    else
+      write_listing_line(len);
+
+  } // for
+  return(len);
+}
+
+int handlepass2(){
+  int n = 0;
+  token *ct = token_table[token_line];
+  token *nt = token_table[token_line+1];
+  inst_index = search_opcode(ct->operator);
+  int format = inst_table[inst_index]->format; // 명령어 길이를 구함(지시자의 길이는 0)
+  if(ct->operator[0] == '+') {
+    format = 4;
+  }
+  if (format > 0) { // 어셈블러 지시자가 아님
+    generate_object_code(format);
+    write_listing_line(format);
+  }
+  else if (format == 0) { // 어셈블러 지시자
+    if (strcmp(ct->operator, "BASE") == 0) { // 베이스 레지스터의 값을 어셈블러에게 알려준다
+      write_listing_line(format);
+      BASEADDR = search_symtab(ct->operand[0], sec); // 기호 테이블에서 검색
+      if (BASEADDR < 0)
+        BASEADDR = 0;
+    }
+    else if (strcmp(ct->operator, "NOBASE") == 0) { // 베이스 레지스터의 값을 해제한다
+      write_listing_line(format);
+      BASEADDR = 0;
+    }
+    else if (strcmp(ct->operator, "WORD") == 0) {
+      if (ct->operand[0][0] > 'A') { // 기호 사용
+        int W3, W4=0;
+        W3 = search_symtab(ct->operand[0], sec); // 기호 테이블에서 검색
+        if (W3 < 0) {
+          W3 = search_extRtab(ct->operand[0], sec); // 외부 참조인지 검사
+          if (W3 < 0) {
+            printf("Error: Undefinded symbol: %s\n", ct->operand[0]);
+            object_code[0] = object_code[1] = object_code[2] = 0;
+            return(3); 
+          }
+          // 수정 레코드(Modification record)에 추가
+          // L2-STARTADDR+1 -> 현 제어섹션의 처음부터 상대적으로 표기된 수정될 필드의 주소
+          // 05 -> 하프 바이트로 나타낸 수정될 레코드의 길이(여기서는 05로 fix시킴)
+          // + -> 수정 플래그(여기서는 +로 fix시킴)
+          sprintf(mod_record[mod_record_count], "M%06X06+%-6s\n", ct->addr-csect_start_address, ct->operand[0]);
+          mod_record_count;
+        }
+
+        int isplus = strchr(ct->operand[0], '+');
+        int issub = strchr(ct->operand[0], '-');
+        uchar exp = '\0';
+        if (isplus){
+            exp = '+';
+        }else if(issub){
+            exp = '-';
+        }
+
+        uchar exop[2][10];
+        exop[0][0] = '\0';
+        int exopi = 0; 
+        // 아래 문장은 복수개의 기호(MAXLEN WORD BUFEND-BUFFER 같은 문장)을 처리하기 위해...
+        if ((strchr(ct->operand[0], '+')) || (strchr(ct->operand[0], '-'))) { // 수식의 연산은 +, - 만 지원됨
+            uchar *tok = strtok(ct->operand[0], "+-");
+            strcpy(exop[exopi], tok);
+            tok = strtok(NULL," \n\t");
+            strcpy(exop[exopi+1], tok);
+            while (exopi < 1) {
+            W4 = search_symtab(exop[exopi], sec);
+            if (W4 < 0) {
+              W4 = search_extRtab(exop[exopi], sec);
+              if (W4 < 0) {
+                printf("Error: Undefinded symbol: %s\n", exop[exopi]);
+                object_code[0] = object_code[1] = object_code[2] = 0;
+                return(3);
+              }
+              sprintf(mod_record[mod_record_count], "M%06X06%c%-6s\n", ct->addr-csect_start_address, exp, exop[exopi]);
+              mod_record_count++;
+            }
+            if (isplus){
+              W3 = W3 + W4;}
+            else if(issub){
+              W3 = W3 - W4;}
+            exopi++;
+            }
+        }
+
+        object_code[0] = (W3 >> 16) & 255;
+        object_code[1] = (W3 >> 8) & 255;
+        object_code[2] = W3 & 255;
+      }
+      else {
+        sscanf(ct->operand[0], "%d", &n);
+        object_code[0] = 0;
+        object_code[1] = (n >> 8) & 255;
+        object_code[2] = n & 255;
+      }
+      write_listing_line(3); // 3형식이 아니라 단지 인쇄를 위해
+      return (3);
+    }
+    else if (strcmp(ct->operator, "RESW") == 0) {
+      write_listing_line(format);
+      sscanf(ct->operand[0], "%d", &n); // n은 예약되는 워드(3 byte)의 갯수
+      write_text_record(); // 이전 까지의 텍스트 레코드(Text record)의 출력
+      // TS -> 텍스트 레코드에 포함될 목적 코드 시작주소
+      // LOCCTR를 대입하는것은 현재 RESW가 할당받는 공간을 넘어서 주소가 시작되어야 하므로...
+      text_record_start = ct->addr;
+    }
+    else if (strcmp(ct->operator, "RESB") == 0) {
+      write_listing_line(format);
+      sscanf(ct->operand[0], "%d", &n); // n은 예약되는 byte의 갯수
+      write_text_record(); // 이전 까지의 텍스트 레코드(Text record)의 출력
+      // TS -> 텍스트 레코드에 포함될 목적 코드 시작주소
+      // LOCCTR를 대입하는것은 현재 RESW가 할당받는 공간을 넘어서 주소가 시작되어야 하므로...
+      text_record_start = ct->addr;
+    }
+    else if (strcmp(ct->operator, "BYTE")==0)
+    {
+      if (ct->operand[0][0] == 'C') { // 지정한 문자로 초기화되는 바이트 수
+        n = 0;
+        while (ct->operand[0][n+2] != '\'') {
+          object_code[n] = ct->operand[0][n+2]; // character를 byte로 환산
+          n++;
+        }
+        object_code[n] = '\0';
+        write_listing_line(n);
+        return(n);
+      }
+      else if (ct->operand[0][0] == 'X') { // 지정한 16진수로 초기화되는 바이트 수
+        int len=0;
+        n = 0;
+        while (ct->operand[0][n+2] != '\'') {
+          object_code[len] = hexstr2dec(ct->operand[0][n+2])*16 + hexstr2dec(ct->operand[0][n+3]); // 16진수 두 글자를 1 byte로 환산
+          n += 2;
+          len++;
+        }
+        object_code[len] = '\0';
+        write_listing_line(len);
+        return(len);
+      }
+      else {
+        sscanf(ct->operand[0], "%d", &n);
+        object_code[0] = n;
+        write_listing_line(n);
+        return(1);
+      }
+    }
+    else if (strcmp(ct->operator, "LTORG") == 0) {
+      write_listing_line(format);
+      n = write_literal(); // Literal Table(pool) 출력
+      current_pool++;
+      return(n);
+    }
+    else if (strcmp(ct->operator, "CSECT")==0)
+    {
+        text_record_start = 0; // TS -> 텍스트 레코드에 포함될 목적 코드 시작주소
+
+        fprintf(listing_file, "\n");
+        write_listing_line(format);
+
+        sec++; // 제어섹션(control section) 번호 증가
+        write_text_record(); // 이전 까지의 텍스트 레코드(Text record)의 출력
+        while (mod_last < mod_record_count) { // 수정 레코드(Modification record)를 출력한다
+        fprintf(object_code_file, "%s", mod_record[mod_last]);
+        mod_last++;
+        }
+        if (sec == 1){ // 기본 섹션(default section)
+         fprintf(object_code_file, "E%06X\n\n", FEI);} // 엔드 레코드(End record)
+        else{
+         fprintf(object_code_file, "E\n\n");}
+        fprintf(object_code_file, "H%-6s%06X%06X\n", ct->label, 0, csect_table[sec].program_length);
+    }
+    else if (strcmp(ct->operator, "EQU") == 0) {
+      line_num += 5;
+        fprintf(listing_file, "%4d    %04X  %-30s ", line_num, ct->addr, input_data[token_line]); // 맨 앞에 Loc 출력
+        fprintf(listing_file, "\n");
+    }
+    else if (strcmp(ct->operator, "EXTDEF") == 0) // 외부 정의(external definition)
+    {
+        for (int i = 0; i < MAX_OPERAND && ct->operand[i][0] != '\0'; ++i) {
+            strcpy(extDef[extDefCount].symbol, ct->operand[i]);
+            extDef[extDefCount].addr = search_symtab(ct->operand[i], sec);
+            extDefCount++;
+        }
+        fprintf(object_code_file, "D"); // 정의 레코드(define record)
+        for(int i = 0; i < MAX_OPERAND && ct->operand[i][0] != '\0'; ++i) {
+        int a1 = search_extDtab(ct->operand[i]);
+        fprintf(object_code_file, "%-6s%06X", ct->operand[i], a1);
+        } // 현 제어 섹션에서 정의된 외부기호이름,상대주소
+        line_num += 5;
+        fprintf(listing_file, "%4d          %-30s ", line_num, input_data[token_line]);
+        fprintf(object_code_file, "\n");
+        fprintf(listing_file, "\n");
+    }
+    else if (strcmp(ct->operator, "EXTREF") == 0) // 외부 참조(external reference)
+    {
+        fprintf(object_code_file, "R"); // 참조 레코드(Refer record)
+        for(int i = 0; i < MAX_OPERAND && ct->operand[i][0] != '\0'; ++i) {
+        fprintf(object_code_file, "%-6s", ct->operand[i]);
+        }
+
+        line_num += 5;
+        fprintf(listing_file, "%4d          %-30s", line_num, input_data[token_line]);
+        fprintf(object_code_file, "\n");
+        fprintf(listing_file, "\n");
+    }
+  }
+  
+  return (format);
+}
 
 // Helper function to write a Text record to the object program
-void write_text_record(int start_address, int length) {
-    fprintf(object_code_file, "T%06X%02X%s\n", start_address, length / 2, text_record[1]);
-}
-
-// Helper function to convert constant to object code
-void convert_constant_to_object_code(uchar *constant, uchar *object_code) {
-    // Extract the content between single quotes and convert accordingly
-
-    // Initialize object_code
-    object_code[obj_count] = '\0';
-
-    if (constant[1] == 'C') {
-        // Character constant, convert each character to ASCII and append to object_code
-        for (int i = 3; constant[i] != '\''; ++i) {
-            sprintf(object_code, "%s%02X", object_code, constant[i]);
-        }
-    } else if (constant[1] == 'X') {
-        // Hexadecimal constant, append to object_code
-        for (int i = 3; constant[i] != '\''; ++i) {
-            sprintf(object_code, "%s%c", object_code, constant[i]);
-        }
+void write_text_record() {
+    if(text_record_ctr > 0){
+    fprintf(object_code_file, "T%06X%02X%s\n", text_record_start, text_record_ctr / 2, text_record);
     }
-    obj_count++; 
 }
 
-void write_listing_line(uchar *line, int locctr, int object_code) {
-    fprintf(listing_file, "%04X %-30s    %07X\n", locctr, line, object_code);
+int write_listing_line(int format) {
+    line_num += 5; // 행번호
+    token *current_token = token_table[token_line];
+    token *nt = token_table[token_line + 1];
+  switch (format) {
+    case 0: // 에셈블러 지시자
+      if (current_token->label == NULL)
+        fprintf(listing_file, "%4d          %-30s \n", line_num, input_data[token_line]);
+      else
+        fprintf(listing_file, "%4d    %04X  %-30s \n", line_num, current_token->addr, input_data[token_line]);
+      break;
+
+    case 1:
+      if ((text_record_ctr + 2) > 60) {
+        write_text_record();
+        text_record_start = current_token->addr;
+      }
+      sprintf(text_record+text_record_ctr, "%02X", object_code[0]);
+      text_record_ctr += 2;
+      fprintf(listing_file, "%4d    %04X  %-30s     %02X\n", line_num, current_token->addr,
+       input_data[token_line], object_code[0]);
+      break;
+
+    case 2: // 2형식
+      if ((text_record_ctr + 4) > 60) {
+        write_text_record(); // 이전 까지의 텍스트 레코드(Text record)의 출력
+        // text_record_start -> 텍스트 레코드에 포함될 목적 코드 시작주소
+        // current_token->addr를 대입하는것은 현재 명령어가 다음 텍스트 레코드의 시작주소이므로...
+        text_record_start = current_token->addr;
+      }
+      sprintf(text_record+text_record_ctr, "%02X%02X", object_code[0], object_code[1]);
+      text_record_ctr += 4;
+
+      fprintf(listing_file,"%4d    %04X  %-30s ", line_num, current_token->addr,
+       input_data[token_line]);
+
+      fprintf(listing_file," %02X%02X\n", object_code[0], object_code[1]);
+      break;
+
+    case 3: // 3형식
+      if ((text_record_ctr + 6) > 60) {
+        write_text_record(); // 이전 까지의 텍스트 레코드(Text record)의 출력
+        // text_record_start -> 텍스트 레코드에 포함될 목적 코드 시작주소
+        // current_token->addr를 대입하는것은 현재 명령어가 다음 텍스트 레코드의 시작주소이므로...
+        text_record_start = current_token->addr;
+      }
+      sprintf(text_record+text_record_ctr, "%02X%02X%02X", object_code[0], object_code[1], object_code[2]);
+      text_record_ctr += 6;
+      fprintf(listing_file,"%4d    %04X  %-30s ", line_num, current_token->addr, input_data[token_line]);
+
+      fprintf(listing_file," %02X%02X%02X\n", object_code[0], object_code[1], object_code[2]);
+      break;
+
+    case 4: // 4형식
+      if ((text_record_ctr + 8) > 60) {
+        write_text_record(); // 이전 까지의 텍스트 레코드(Text record)의 출력
+        // text_record_start -> 텍스트 레코드에 포함될 목적 코드 시작주소
+        // current_token->addr를 대입하는것은 현재 명령어가 다음 텍스트 레코드의 시작주소이므로...
+        text_record_start = current_token->addr;
+      }
+      sprintf(text_record+text_record_ctr, "%02X%02X%02X%02X", object_code[0], object_code[1], object_code[2], object_code[3]);
+      text_record_ctr += 8;
+      fprintf(listing_file,"%4d    %04X  %-30s ", line_num, current_token->addr , input_data[token_line]);
+      
+      fprintf(listing_file," %02X%02X%02X%02X\n", object_code[0], object_code[1], object_code[2], object_code[3]);
+      break;
+  }
 }
 
-// Function to write the Header record to the object program
-void write_header_record(uchar *program_name, int starting_address, int program_length) {
-    fprintf(object_code_file, "H%-6s%06X%06X\n", program_name, starting_address, program_length);
-}
 
 // Function to initialize a Text record
 void initialize_text_record() {
-    for (int i = 0; i < MAX_LINES; ++i) {
-        text_record[i][0] = '\0';
-    }
-    text_record[0][0] = '\0';
-    text_record[1][0] = '\0';
+    text_record_ctr = 0;
+    text_record[0] = '\0';
 }
 
-// Function to write the End record to the object program
-void write_end_record(int starting_address) {
-    fprintf(object_code_file, "E%06X\n", starting_address);
-}
-
-// Helper function to write a Modification record to the object program
-void write_modification_record(int start, int length) {
-    fprintf(object_code_file, "M%06X%02X\n", start, length);
-}
-
-// Helper function to write modification records to object program
-void write_modification_records() {
-    for (int i = 0; i < mod_record_count; ++i) {
-        write_modification_record(mod_records[i].start, mod_records[i].length);
-    }
-}
-
-// Helper function to write EXTDEF and EXTREF records
-void write_extdef_extref_records(uchar *record_type) {
-    // Write EXTDEF or EXTREF records
-    if (strcmp(record_type, "D") == 0 && extDefCount > 0) {
-        fprintf(object_code_file, "D");
-
-        for (int i = 0; i < extDefCount; ++i) {
-            fprintf(object_code_file, "%-6s%06X", extDef[i].symbol, extDef[i].addr);
-        }
-
-        fprintf(object_code_file, "\n");
-    } else if (strcmp(record_type, "R") == 0 && extRefCount > 0) {
-        fprintf(object_code_file, "R");
-        for (int i = 0; i < extRefCount; ++i) {
-            if(extRef[i].sec == sec)
-            fprintf(object_code_file, "%-6s", extRef[i].symbol);
-        }
-        fprintf(object_code_file, "\n");
-    }
-}
-
-
-// Function to handle pass 2 of the assembler
-static int assem_pass2(void) {
-    // Reset variables for pass 2
-    obj_count = 0;
-    text_record_count = 0;
-    mod_record_count = 0;
+int assem_pass2()
+{
+    int i;
+    line_num = 0;
+    LT_num = 0;
     token_line = 0;
     inst_index = 0;
-
+    sec = 0;
     // Initialize the object code output and listing files
     make_objectcode_output("objectcode.txt", "listing.txt");
+    initialize_text_record();
 
-    // Initialize variables for text record generation
-    int text_record_start, text_record_length;
-
-    // Initialize variables for control section handling
-    sec = 0;
-    // Initialize variables for EXTDEF and EXTREF
-    extDefCount = 0;
-
-    for(int i; i<MAX_LINES; i++){
-        obj_codes[i].address = -1;
-        obj_codes[i].sec = -1;
-        obj_codes[i].code[0] = '\0';
+    token *fl = token_table[0];
+    if (strcmp(fl->operator, "START") == 0) {
+        starting_address = strtol(fl->operand[0], NULL, 16);
+        write_listing_line(0); // Lst 파일의 출력 시작
+        // Obj 파일의 출력 시작(Header)
+        fprintf(object_code_file, "H%-6s%06X%06X\n", fl->label, starting_address, csect_table[sec].program_length);
+        token_line++;
+    } else {
+        printf("Error: START directive not found.\n");
     }
 
-    // Process lines until OPCODE is 'END'
-    while (token_line < MAX_LINES) {
-        // Read the next input line
-        token *current_line = token_table[token_line];
-        token *next_line = token_table[token_line + 1];
-                // Handle START directive
-                if (strcmp(current_line->operator, "START") == 0) {
-                    // Extract starting address from operand
-                    starting_address = strtol(current_line->operand[0], NULL, 16);
-                    // Write the Header record
-                    write_header_record(current_line->label, starting_address, csect_table[sec].program_length);
-                    // Initialize first Text record
-                    initialize_text_record();
-                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
-                    token_line++;
-                    continue;  // Skip to the next iteration
-                }
-                if (strcmp(current_line->operator, "CSECT") == 0) {
-                    sec++;
-                    // Initialize variables for the new section
-                    csect_start_address = starting_address;
-                    csect_length = csect_table[sec].program_length;
+    while (1) {
+    // 리스트, 목적코드 출력
+	    handlepass2();
 
-                    // Write Header record for the new section
-                    fprintf(object_code_file, "\n");
-                    write_header_record(current_line->label, csect_start_address, csect_length);
-                    // Initialize first Text record
-                    initialize_text_record();
-                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
-                    token_line++;
-                    continue;  // Skip the rest of the loop for CSECT
-                } 
-                if (strcmp(current_line->operator, "EXTDEF") == 0) {
-                    // Handle EXTDEF directive
-                    // Record the symbols defined in EXTDEF
-                    for (int i = 0; i < MAX_OPERAND && current_line->operand[i][0] != '\0'; ++i) {
-                        strcpy(extDef[extDefCount].symbol, current_line->operand[i]);
-                        extDef[extDefCount].addr = search_symtab(current_line->operand[i]);
-                        extDefCount++;
-                    }
-                    // Write Define (EXTDEF) records
-                    write_extdef_extref_records("D");
-                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
-                    token_line++;
-                    continue;
-                } if (strcmp(current_line->operator, "EXTREF") == 0) {
-                    // Write Refer (EXTREF) records
-                    write_extdef_extref_records("R");
-                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
-                    token_line++;
-                    continue;
-                }
+        if (strcmp(token_table[token_line]->operator, "END") == 0) {
+            write_listing_line(0);
+            write_text_record(); // 이전 까지의 텍스트 레코드(Text record)의 출력
 
-        if (current_line != NULL) {
-            inst_index = search_opcode(current_line->operator);
-            int format;
-            if (inst_index != -1) {
-                if(current_line->operator[0] == '+'){
-                    format = 4;
-                } 
-                    format = inst_table[inst_index]->format;
+            text_record_start = token_table[token_line]->addr; // TS -> 텍스트 레코드에 포함될 목적 코드 시작주소
+            i = write_literal(); // Literal Table(pool) 출력
+            write_text_record(); // Literal Table(pool) 에 대한 텍스트 레코드(Text record)의 출력
 
-                // Handle directives
-                if (format >= 3) {
-                    // Handle instructions with format 3/4
-                    // Search SYMTAB for OPERAND and store symbol value as operand address
-                    operand_address = search_symtab(current_line->operand[0]);
-
-                    if (operand_address != -1) {
-                        generate_object_code(format);
-                        write_text_record(text_record_start, text_record_length);
-                    } else {
-                        // Store 0 as operand address
-                        operand_address = 0;
-                        fprintf(stderr, "Error: Symbol %s not found in SYMTAB\n", current_line->operand[0]);
-                        // Set error flag (undefined symbol)
-                    }
-                } if (strcmp(current_line->operator, "BYTE") == 0 ||
-                           strcmp(current_line->operator, "WORD") == 0) {
-                    // Handle BYTE and WORD directives
-                    // Convert constant to object code
-                    convert_constant_to_object_code(current_line->operand[0], text_record[0]);
-
-                    // Add object code to Text record
-                    strcat(text_record[1], text_record[0]);
-                    }
-
-                // Check if object code will fit into the current Text record
-                if (strlen(text_record[1]) / 2 >= MAX_TEXT_RECORD_LENGTH) {
-                    // Write the Text record to the object program
-                    write_text_record(text_record_start, text_record_length);
-                    // Initialize new Text record
-                    initialize_text_record();
-                    }
-                if (obj_codes[obj_count].address == -1){
-                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
-                } else {
-                // Write listing line
-                write_listing_line(input_data[token_line], current_line->addr, obj_codes[obj_count].address);
-                }
-                
+            while (mod_last < mod_record_count) { // 수정 레코드(Modification record)를 출력한다
+                fprintf(object_code_file, "%s", mod_record[mod_last]);
+                mod_last++;
             }
-        }
-
-        // Check for END directive
-        if (strcmp(current_line->operator, "END") == 0) {
-            // Write last Text record to the object program
-            write_text_record(text_record_start, text_record_length);
-
-            // Write End record to the object program
-            write_end_record(starting_address);
-
-            // Write modification records
-            write_modification_records();
-
-            // Break out of the loop
+            if (sec == 1){ // 기본 섹션(default section)
+                fprintf(object_code_file, "E%06X\n\n", FEI);} // 엔드 레코드(End record)
+            else{
+                fprintf(object_code_file, "E\n\n");}
             break;
         }
-
-        // Read Next
-        token_line++;
-        obj_count++;
+    token_line++;
     }
 
-    for(int i = 0; i < obj_count; i++){
-        printf("%06X\n", obj_codes[i].address);
-    }
-    // Close the output files
-    fclose(object_code_file);
-    fclose(listing_file);
-
-    return 0;
+  fclose(listing_file);
+  fclose(object_code_file);
+  return (0);
 }
-
 
 

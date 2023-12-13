@@ -1,52 +1,55 @@
-0000 COPY	START	0	                 
-0000 	EXTDEF	BUFFER,BUFEND,LENGTH  
-0000 	EXTREF	RDREC,WRREC           
-0000 FIRST	STL	RETADR	                 06F4421
-0003 CLOOP  	+JSUB	RDREC	              06F4591
-0007 	LDA	LENGTH	                      06F4701
-000A 	COMP	#0		                        BAADF00D
-000D 	JEQ	ENDFIL	                      06F4961
-0010 	+JSUB	WRREC	                     06F4A91
-0014 	J	CLOOP	                         06F4BC1
-0017 ENDFIL	LDA	=C'EOF'	               0000000
-001A 	STA	BUFFER                       06F4E61
-001D 	LDA	#3	                          0000000
-0020 	STA	LENGTH                       06F50C1
-0023 	+JSUB	WRREC	                     06F6F81
-0027 	J	@RETADR	                       0000000
-002A RETADR	RESW	1                     0000000
-002D LENGTH	RESW	1	                    0000000
-0030 	LTORG                            0000000
-0033 BUFFER	RESB	4096	                 0000000
-1033 BUFEND	EQU	*                  
-1000 MAXLEN	EQU	BUFEND-BUFFER	     
-0000 RDREC	CSECT                   
-0000 	EXTREF	BUFFER,LENGTH,BUFEND  
-0000 	CLEAR	X	                     
-0002 	CLEAR	A	                     
-0004 	CLEAR	S	                     
-0006 	LDT	MAXLEN                       06F8071
-0009 RLOOP	TD	INPUT	                   06F81A1
-000C 	JEQ	RLOOP	                       06F8311
-000F 	RD	INPUT	                        06F8441
-0012 	COMPR	A,S	                   
-0014 	JEQ	EXIT	                        06F86A1
-0017 	+STCH	BUFFER,X	                  06F87D1
-001B 	TIXR	T	                      
-001D 	JLT	RLOOP	                       06F8A31
-0020 EXIT	+STX	LENGTH	                 06F8B61
-0024 	RSUB		                       
-0027 INPUT	BYTE	X'F1'	             
-0028 MAXLEN	WORD	BUFEND-BUFFER     
-0000 WRREC	CSECT                   
-0000 	EXTREF	LENGTH,BUFFER         
-0000 	CLEAR	X	                     
-0002 	+LDT	LENGTH                      06F94B1
-0006 WLOOP	TD	=X'05'	              
-0009 	JEQ	WLOOP	                       06F9751
-000C 	+LDCH	BUFFER,X	                  06F9881
-0010 	WD	=X'05'	                   
-0013 	TIXR	T	                      
-0015 	JLT	WLOOP	                       06F9C11
-0018 	RSUB		                       
-001B 	END	FIRST                    
+   5    0000  COPY	START	0	                  
+  10          	EXTDEF	BUFFER,BUFEND,LENGTH   
+  15          	EXTREF	RDREC,WRREC           
+  20    0000  FIRST	STL	RETADR	               172027
+  25    0003  CLOOP  	+JSUB	RDREC	            4B100000
+  30    0007  	LDA	LENGTH	                    032023
+  35    000A  	COMP	#0		                      290000
+  40    000D  	JEQ	ENDFIL	                    332007
+  45    0010  	+JSUB	WRREC	                   4B100000
+  50    0014  	J	CLOOP	                       3F2FEC
+  55    0017  ENDFIL	LDA	=C'EOF'	             032FE6
+  60    001A  	STA	BUFFER                     0F2016
+  65    001D  	LDA	#3	                        010003
+  70    0020  	STA	LENGTH                     0F200A
+  75    0023  	+JSUB	WRREC	                   4B100000
+  80    0027  	J	@RETADR	                     3E2000
+  85    002A  RETADR	RESW	1                  
+  90    002D  LENGTH	RESW	1	                 
+  95          	LTORG                         
+ 100          	LTORG                         
+ 105    0033  BUFFER	RESB	4096	              
+ 110    1033  BUFEND	EQU	*                   
+ 115    1000  MAXLEN	EQU	BUFEND-BUFFER	      
+
+ 120    0000  RDREC	CSECT                    
+ 125          	EXTREF	BUFFER,LENGTH,BUFEND  
+ 130    0000  	CLEAR	X	                       B410
+ 135    0002  	CLEAR	A	                       B400
+ 140    0004  	CLEAR	S	                       B440
+ 145    0006  	LDT	MAXLEN                     77201F
+ 150    0009  RLOOP	TD	INPUT	                 E3201B
+ 155    000C  	JEQ	RLOOP	                     332FFA
+ 160    000F  	RD	INPUT	                      DB2015
+ 165    0012  	COMPR	A,S	                     A004
+ 170    0014  	JEQ	EXIT	                      332009
+ 175    0017  	+STCH	BUFFER,X	                57900000
+ 180    001B  	TIXR	T	                        B850
+ 185    001D  	JLT	RLOOP	                     3B2FE9
+ 190    0020  EXIT	+STX	LENGTH	               13100000
+ 195    0024  	RSUB		                         4F2FD8
+ 200    0027  INPUT	BYTE	X'F1'	                  F1
+
+ 205    0000  WRREC	CSECT                    
+ 210          	EXTREF	LENGTH,BUFFER         
+ 215    0000  	CLEAR	X	                       B410
+ 220    0002  	+LDT	LENGTH                    77100000
+ 225    0006  WLOOP	TD	=X'05'	                E32FF7
+ 230    0009  	JEQ	WLOOP	                     332FFA
+ 235    000C  	+LDCH	BUFFER,X	                53900000
+ 240    0010  	WD	=X'05'	                     DF2FED
+ 245    0013  	TIXR	T	                        B850
+ 250    0015  	JLT	WLOOP	                     3B2FEE
+ 255    0018  	RSUB		                         4F2FE4
+ 260          	END	FIRST                     
+ 265          	END	FIRST                     

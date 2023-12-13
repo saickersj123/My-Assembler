@@ -22,16 +22,5 @@ int main(void){
     printf("\nPass 2 Ended.\n");
     //print success message
     printf("\nAssembler successfully completed both passes.\n");
-    for(int i =0; i < sec + 1; i++){
-        printf("length of section %d : %04X\n", i, csect_table[i].program_length);
-    }
-    for(int i = 0; i < MAX_EXTDEF; i++){
-    printf("extdef %d  addr : %04X name : %s\n", i, extDef[i].addr, extDef[i].symbol);
-    }
-    for(int i = 0; i < MAX_EXTREF; i++){
-    printf("extref %d  name : %s sec : %d\n", i, extRef[i].symbol, extRef[i].sec);
-    }
-    int nixbpe = 0;
-    printf("%06X", nixbpe |= 1 << 5);
     return 0;
 }    

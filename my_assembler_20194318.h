@@ -42,7 +42,6 @@ struct token_unit
 	uchar operand[MAX_OPERAND][20];
 	uchar comment[100];
 	int addr;
-	int nixbpe;
 	int ta;
 };
 
@@ -92,38 +91,15 @@ int init_input_file(uchar *input_file); //intput.txt를 읽고 input_data[]에 저장
 int token_parsing(uchar *str); //input_data[]에 저장된 명령어를 토큰화하여 token_table[]에 저장
 int search_opcode(uchar *str); //input_data[]에 저장된 명령어의 opcode를 검색 inst_table[]을 참조
 static int assem_pass1(void); //SIC/XE Pass1 make_opcode_output과 make_symtab_output을 포함
-void make_opcode_output(uchar *file_name); /*Contain the mnemonic operation code & its machine language 
-equivalent.
-- May also contain information about instruction format and length
-- Used to look up & validate mnemonic operation codes (Pass 1)
-and translate them to machine language (Pass 2) 
-- In SIC, both processes could be done together
-- In SIC/XE, search OPTAB to find the instruction length (Pass 1), 
-determine instruction format to use in assembling the instruction (Pass 2)
-- Usually organized as a hash table & a static table
-- Mnemonic operation code as a key
-- Provide fast retrieval with a minimum searching
-- A static table in most cases
-- Entries are not normally added to or deleted from it
-*/
-void make_symtab_output(uchar *file_name); /*- Used to store values (addresses) assigned to labels
-- Contain the name and value (addresses) for each label, 
-together with flags for error conditions, 
-also information about the data area or instruction labeled
-- for example, its the type or length
-- Pass 1 : labels are entered with their assigned (from LOCCTR)
-- Pass 2 : symbols are used to look up in SYMTAB to obtain the 
-addresses to be inserted
-- Usually organized as a hash table
-- For efficiency of insertion & retrieval
-- Heavily used throughout the assembly*/
+void make_opcode_output(uchar *file_name); 
+void make_symtab_output(uchar *file_name); 
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name, uchar *list_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
 
 //From this line, they are my own functions, variables, ADT
 void write_intermediate_file(uchar *str, int locctr);
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec);
-int search_symtab(uchar *symbol);
+int search_symtab(uchar *symbol, int section);
 int tok_search_opcode(uchar *str);
 typedef struct {
     uchar name[20];
@@ -136,7 +112,7 @@ typedef struct {
 #define MAX_LITERALS 100
 LT LTtab[MAX_LITERALS];
 static int LT_num;
-
+int current_pool;
 // Function to evaluate an arithmetic expression
 static int evaluate_expression(uchar *expr);
 
@@ -153,35 +129,26 @@ static int extRefCount;
 #define MAX_MOD_RECORDS 1000
 #define MAX_TEXT_RECORD_LENGTH 1000
 
-typedef struct {
-    int address;   // Address of the object code
-    uchar code[10]; // Object code representation
-	int sec; // Section of the object code
-} object_code;
-
-// Define an array to store object code information
-object_code obj_codes[MAX_LINES];
-
 // Define a counter for object code records
-static int obj_count;
 FILE *object_code_file;
 FILE *listing_file;
 static int operand_address;
 #define LTORG_LENGTH 30
 
-// Define a structure for the modification records
-typedef struct {
-    int start;   // Starting address of modification
-    int length;  // Length of modification
-	int sec; // Section of modification
-} modification;
-
-// Define an array to store modification records
-modification mod_records[MAX_LINES];
-uchar text_record[MAX_LINES][70];
-static int text_record_count;
+// Define an array to store object code
+int object_code[20];
+uchar text_record[70];
+static int text_record_start;
+static int text_record_ctr;
 // Define a counter for modification records
 static int mod_record_count;
+int mod_last;
+uchar mod_record[30][20];
 
 int csect_start_address;
 int csect_length;
+int BASEADDR;
+int FEI;
+
+int write_listing_line(int format);
+void write_text_record();
