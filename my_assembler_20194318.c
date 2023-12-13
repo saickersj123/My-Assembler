@@ -105,7 +105,7 @@ int calculate_byte_length(uchar *operand) {
 
 int search_symtab(uchar *symbol) {
     for (int i = 0; i < sym_index; ++i) {
-        if (strcmp(sym_table[i].symbol, symbol) == 0) {
+        if (strcmp(sym_table[i].symbol, symbol) == 0){
             return  sym_table[i].addr; // Symbol found, return its index
         }
     }
@@ -176,7 +176,7 @@ int init_inst_file(uchar *inst_file){
 
         inst_index++;
     }
-
+    inst_count = inst_index;
     fclose(file);
     return 0;
 }
@@ -324,7 +324,7 @@ int search_opcode(uchar *str) {
         return -1;
     }
     
-    for (int i = 0; i < inst_index; i++) {
+    for (int i = 0; i < inst_count; i++) {
         if (strcmp(str, inst_table[i]->str) == 0 || (str[0] == '+' && strcmp(str + 1, inst_table[i]->str) == 0)) {
             // Test print searched operator on terminal
             printf("Operator: %s / ", inst_table[i]->str);
@@ -620,6 +620,9 @@ static int assem_pass1(void) {
     csect_table[sec].program_length = locctr;
     make_symtab_output("symtab.txt");
     
+    for(int i = 0; i < line_num; i++) {
+        printf("line : %d\n Locctr : %04X\n", i+1, token_table[i]->addr);
+    }
     return 0;
 }
 
@@ -774,80 +777,144 @@ void make_objectcode_output(uchar *file_name, uchar *list_name) {
 
 }
 
+// Function to get the numerical value of a register
+int getREGnum(uchar *register_name) {
+    if (strcmp(register_name, "A") == 0) {
+        return 0;
+    } else if (strcmp(register_name, "X") == 0) {
+        return 1;
+    } else if (strcmp(register_name, "L") == 0) {
+        return 2;
+    } else if (strcmp(register_name, "B") == 0) {
+        return 3;
+    } else if (strcmp(register_name, "S") == 0) {
+        return 4;
+    } else if (strcmp(register_name, "T") == 0) {
+        return 5;
+    } else if (strcmp(register_name, "F") == 0) {
+        return 6;
+    } else {
+        // Handle an invalid register name (this depends on your error handling strategy)
+        fprintf(stderr, "Error: Invalid register name - %s\n", register_name);
+        exit(EXIT_FAILURE);
+    }
+}
+
 // Function to generate object code based on the instruction format
-void generate_object_code(token *tok, int format, int opcode_index,
-int locctr, int objcount) {
-    int object_code;
-    int nixbpe ;
-    uchar *op = tok->operator;
-    // Check for format 1 instruction
-    if (format == 1) {
-        // Format 1: opcode only
-        object_code = inst_table[opcode_index]->op;
-    }
-    // Check for format 2 instruction
-    else if (format == 2) {
-        // Format 2: opcode + registers
-        int reg1 = atoi(tok->operand[0]);
-        int reg2 = atoi(tok->operand[1]);
-        object_code = (inst_table[opcode_index]->op << 8) + (reg1 << 4) + reg2;
-    }
-    // Check for format 3/4 instruction
-    else {
-        // Format 3/4: opcode + (nixbpe) + displacement
-        nixbpe = 0;
+void generate_object_code(int format) {
+    int object_code[4] = {0};  // Initialize object code to 0
+    int disp;
+    int loc;
 
-        // Set 'n' bit
-        if ( op[0]=='+'|| tok->operand[0][0] == '@') {
-            nixbpe |= 1 << 5;
-        }
+    switch (format) {
+        case 1: // Format 1: opcode only
+            object_code[0] = token_table[token_line]->operator[0];
+            break;
 
-        // Set 'i' bit
-        if (tok->operand[0][0] != '#') {
-            nixbpe |= 1 << 4;
-        }
+        case 2: // Format 2: opcode + registers
+            object_code[0] = token_table[token_line]->operator[0];
 
-        // Set 'x' bit
-        if (tok->operand[1] != NULL && strcmp(tok->operand[1], ",X") == 0) {
-            nixbpe |= 1 << 3;
-        }
-        int disp;
-        if (op[0]=='+') {
-            // Format 4: 20-bit address in operand field
-            nixbpe |= 1 << 1;  // Set 'b' bit
-            nixbpe |= 1;       // Set 'p' bit
-
-            // Calculate the 20-bit address
-            disp = strtol(tok->operand[0] + 1, NULL, 16);
-        } 
-        if (format == 3) {
-            // Format 3: 12-bit displacement from base or PC
-            int target_address = search_symtab(tok->operand[0]);
-
-            // Check if base relative addressing is possible
-            if (target_address != -1 && target_address >= locctr - 2048 && target_address <= locctr + 2047) {
-                disp = target_address - locctr;
-                nixbpe |= 1 << 1;  // Set 'b' bit
+            if (token_table[token_line]->operand[0][0] < 'A') { // operand가 레지스터가 아닌 경우
+                sscanf(token_table[token_line]->operand[0], "%d", &disp);
+                object_code[1] = disp << 4; // n
             } else {
-                // Use PC relative addressing
-                disp = target_address - (locctr + 3);
-                nixbpe |= 1;  // Set 'p' bit
+                object_code[1] = getREGnum(token_table[token_line]->operand[0][0]) << 4; // r1
             }
-        }
 
-        // Combine opcode, nixbpe, and displacement to get the object code
-        object_code = (inst_table[opcode_index]->op << 16) + (nixbpe << 12) + (disp & 0xFFF);
+            if (token_table[token_line]->operand[1][0] == ',') {
+                if (token_table[token_line]->operand[1][1] < 'A') { // op2가 레지스터가 아닌 상수값(n)
+                    sscanf(token_table[token_line]->operand[1] + 1, "%d", &disp);
+                    object_code[1] |= disp; // n
+                } else {
+                    object_code[1] |= getREGnum(token_table[token_line]->operand[1][1]); // r2
+                }
+            }
+            break;
+
+        case 3: // Format 3: opcode + (nixbpe) + displacement
+            switch (token_table[token_line]->operand[0][0]) {
+                case '#': // Immediate addressing
+                    object_code[0] = token_table[token_line]->operator[0] + 1; // n=0, i=1
+                    if (token_table[token_line]->operand[0][1] >= 'A') { // PC relative addressing + Immediate addressing
+                        loc = search_symtab(token_table[token_line]->operand[0] + 1);
+                        if (loc == -1) {
+                            printf("Error: Undefined symbol: %s\n", token_table[token_line]->operand[0] + 1);
+                        } else {
+                            disp = loc - token_table[token_line]->addr;
+                            object_code[1] = (disp >> 8) & 15; // TA upper 4 bits
+                            object_code[1] |= 32; // p=1 (PC relative addressing)
+                            object_code[2] = disp & 255; // TA lower 8 bits
+                        }
+                    } else { // Constant value
+                        sscanf(token_table[token_line]->operand[0] + 1, "%d", &disp);
+                        object_code[1] = (disp >> 8) & 15; // TA upper 4 bits
+                        object_code[2] = disp & 255; // TA lower 8 bits
+                    }
+                    break;
+
+                case '@': // Indirect addressing
+                    object_code[0] = token_table[token_line]->operator[0] + 2; // n=1, i=0
+                    loc = search_symtab(token_table[token_line]->operand[0] + 1);
+                    disp = loc - token_table[token_line]->addr;
+                    break;
+
+                default: // Simple addressing (direct addressing)
+                    object_code[0] = token_table[token_line]->operator[0] + 3; // n=1, i=1
+                    loc = search_symtab(token_table[token_line]->operand[0]);
+                    disp = loc - token_table[token_line]->addr;
+                    break;
+            }
+
+            // Check for base relative addressing
+            if (abs(disp) >= 4096) {
+                disp = abs(BASEADDR - loc);
+                object_code[1] |= 64; // b=1 (base relative addressing)
+            } else {
+                object_code[1] |= 32; // p=1 (PC relative addressing)
+            }
+
+            object_code[2] = (disp >> 8) & 255; // TA upper 4 bits
+            object_code[3] = disp & 255; // TA lower 8 bits
+            break;
+
+        case 4: // Format 4: opcode + (nixbpe) + displacement
+            switch (token_table[token_line]->operand[0][0]) {
+                case '#': // Immediate addressing
+                    object_code[0] = token_table[token_line]->operator[0] + 1; // n=0, i=1
+                    if (token_table[token_line]->operand[0][1] >= 'A') { // PC relative addressing + Immediate addressing
+                        loc = search_symtab(token_table[token_line]->operand[0] + 1);
+                        if (loc == -1) {
+                            printf("Error: Undefined symbol: %s\n", token_table[token_line]->operand[0] + 1);
+                        } else {
+                            disp = loc - token_table[token_line]->addr;
+                        }
+                    } else { // Constant value
+                        sscanf(token_table[token_line]->operand[0] + 1, "%d", &disp);
+                    }
+                    object_code[1] = 16; // e=1
+                    object_code[2] = (disp >> 8) & 255; // TA upper 8 bits
+                    object_code[3] = disp & 255; // TA lower 8 bits
+                    break;
+
+                case '@': // Indirect addressing
+                    object_code[0] = token_table[token_line]->operator[0] + 2; // n=1, i=0
+                    loc = search_symtab(token_table[token_line]->operand[0] + 1);
+                    disp = loc - token_table[token_line]->addr;
+                    break;
+
+            }
+            break;
     }
 
     // Store the object code in the array
-    sprintf(obj_codes[objcount].code, "%06X", object_code);
-    obj_codes[objcount].address = object_code;
-    tok->nixbpe = nixbpe;
+    obj_codes[obj_count].address = object_code;
+    obj_codes[obj_count].sec = sec;
     // Add object code to Text record
-    strcat(text_record[text_record_count], obj_codes[objcount].code);
+    sprintf(obj_codes[obj_count].code, "%06X", object_code);
     text_record_count++;
-    printf("Object code: %06X\n", object_code);
+    printf("line: %d\nObject code: %06X\n", token_line, object_code);
 }
+
 
 // Helper function to write a Text record to the object program
 void write_text_record(int start_address, int length) {
@@ -875,8 +942,8 @@ void convert_constant_to_object_code(uchar *constant, uchar *object_code) {
     obj_count++; 
 }
 
-void write_listing_line(uchar *line, int locctr, uchar *object_code) {
-    fprintf(listing_file, "%-30s%04X    %s\n", line, locctr, object_code);
+void write_listing_line(uchar *line, int locctr, int object_code) {
+    fprintf(listing_file, "%04X %-30s    %07X\n", locctr, line, object_code);
 }
 
 // Function to write the Header record to the object program
@@ -885,7 +952,7 @@ void write_header_record(uchar *program_name, int starting_address, int program_
 }
 
 // Function to initialize a Text record
-void initialize_text_record(int locctr) {
+void initialize_text_record() {
     for (int i = 0; i < MAX_LINES; ++i) {
         text_record[i][0] = '\0';
     }
@@ -939,6 +1006,7 @@ static int assem_pass2(void) {
     text_record_count = 0;
     mod_record_count = 0;
     token_line = 0;
+    inst_index = 0;
 
     // Initialize the object code output and listing files
     make_objectcode_output("objectcode.txt", "listing.txt");
@@ -951,10 +1019,17 @@ static int assem_pass2(void) {
     // Initialize variables for EXTDEF and EXTREF
     extDefCount = 0;
 
+    for(int i; i<MAX_LINES; i++){
+        obj_codes[i].address = -1;
+        obj_codes[i].sec = -1;
+        obj_codes[i].code[0] = '\0';
+    }
+
     // Process lines until OPCODE is 'END'
     while (token_line < MAX_LINES) {
         // Read the next input line
         token *current_line = token_table[token_line];
+        token *next_line = token_table[token_line + 1];
                 // Handle START directive
                 if (strcmp(current_line->operator, "START") == 0) {
                     // Extract starting address from operand
@@ -962,8 +1037,8 @@ static int assem_pass2(void) {
                     // Write the Header record
                     write_header_record(current_line->label, starting_address, csect_table[sec].program_length);
                     // Initialize first Text record
-                    initialize_text_record(locctr);
-                    write_listing_line(input_data[token_line], locctr, text_record[text_record_count]);
+                    initialize_text_record();
+                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
                     token_line++;
                     continue;  // Skip to the next iteration
                 }
@@ -977,7 +1052,8 @@ static int assem_pass2(void) {
                     fprintf(object_code_file, "\n");
                     write_header_record(current_line->label, csect_start_address, csect_length);
                     // Initialize first Text record
-                    initialize_text_record(locctr);                
+                    initialize_text_record();
+                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
                     token_line++;
                     continue;  // Skip the rest of the loop for CSECT
                 } 
@@ -991,16 +1067,25 @@ static int assem_pass2(void) {
                     }
                     // Write Define (EXTDEF) records
                     write_extdef_extref_records("D");
+                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
+                    token_line++;
+                    continue;
                 } if (strcmp(current_line->operator, "EXTREF") == 0) {
                     // Write Refer (EXTREF) records
                     write_extdef_extref_records("R");
+                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
+                    token_line++;
+                    continue;
                 }
 
         if (current_line != NULL) {
-            int opcode_index = search_opcode(current_line->operator);
-
-            if (opcode_index != -1) {
-                int format = inst_table[opcode_index]->format;
+            inst_index = search_opcode(current_line->operator);
+            int format;
+            if (inst_index != -1) {
+                if(current_line->operator[0] == '+'){
+                    format = 4;
+                } 
+                    format = inst_table[inst_index]->format;
 
                 // Handle directives
                 if (format >= 3) {
@@ -1009,7 +1094,7 @@ static int assem_pass2(void) {
                     operand_address = search_symtab(current_line->operand[0]);
 
                     if (operand_address != -1) {
-                        generate_object_code(current_line,format, opcode_index, operand_address, obj_count);
+                        generate_object_code(format);
                         write_text_record(text_record_start, text_record_length);
                     } else {
                         // Store 0 as operand address
@@ -1032,11 +1117,14 @@ static int assem_pass2(void) {
                     // Write the Text record to the object program
                     write_text_record(text_record_start, text_record_length);
                     // Initialize new Text record
-                    initialize_text_record(locctr);
+                    initialize_text_record();
                     }
-
+                if (obj_codes[obj_count].address == -1){
+                    fprintf(listing_file, "%04X %-30s\n", token_table[token_line]->addr, input_data[token_line]);
+                } else {
                 // Write listing line
-                write_listing_line(input_data[token_line], locctr, text_record[0]);
+                write_listing_line(input_data[token_line], current_line->addr, obj_codes[obj_count].address);
+                }
                 
             }
         }
@@ -1058,8 +1146,12 @@ static int assem_pass2(void) {
 
         // Read Next
         token_line++;
+        obj_count++;
     }
 
+    for(int i = 0; i < obj_count; i++){
+        printf("%06X\n", obj_codes[i].address);
+    }
     // Close the output files
     fclose(object_code_file);
     fclose(listing_file);

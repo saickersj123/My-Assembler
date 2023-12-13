@@ -31,6 +31,7 @@ int main(void){
     for(int i = 0; i < MAX_EXTREF; i++){
     printf("extref %d  name : %s sec : %d\n", i, extRef[i].symbol, extRef[i].sec);
     }
-    printf("extref name : %s\n", extRef[2].symbol);
+    int nixbpe = 0;
+    printf("%06X", nixbpe |= 1 << 5);
     return 0;
 }    

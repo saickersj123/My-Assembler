@@ -21,7 +21,8 @@ struct inst_unit
 };
 typedef struct inst_unit inst;
 inst *inst_table[MAX_INST];
-int inst_index;
+static int inst_index;
+static int inst_count;
 
 /*
  * 어셈블리 할 소스코드를 입력받는 테이블이다. 라인 단위로 관리할 수 있다.
