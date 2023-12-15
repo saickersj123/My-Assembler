@@ -101,6 +101,7 @@ void write_intermediate_file(uchar *str, int locctr);
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec);
 int search_symtab(uchar *symbol, int section);
 int tok_search_opcode(uchar *str);
+int init_token_table(void);
 typedef struct {
     uchar name[20];
     int leng;
@@ -144,11 +145,12 @@ static int text_record_ctr;
 static int mod_record_count;
 int mod_last;
 uchar mod_record[30][20];
-
+int is_lt;
 int csect_start_address;
 int csect_length;
 int BASEADDR;
 int FEI;
-
+uchar HEXTAB[]= {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+uchar *texp[10];
 int write_listing_line(int format);
 void write_text_record();
