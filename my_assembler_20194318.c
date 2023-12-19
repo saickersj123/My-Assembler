@@ -1,10 +1,10 @@
 #include "my_assembler_20194318.h"
 
-void add_to_symtab(const uchar *label, int loc, int is_equ, int sec) {
+void add_to_symtab(const uchar *label, int loc, int is_equ, int section) {
 
     // Check for duplicate symbol
     for (int i = 0; i < sym_index; i++) {
-        if (strcmp(sym_table[i].symbol, label) == 0 && sym_table[i].sec == sec) {
+        if (strcmp(sym_table[i].symbol, label) == 0 && sym_table[i].sec == section) {
             if (is_equ) {
                 fprintf(stderr, "Error: Duplicate symbol found - %s\n", label);
                 // Handle the error as needed
@@ -139,7 +139,7 @@ int search_extRtab(uchar *symbol, int section) {
 }
 
 int search_extR_index(uchar *symbol, int section) {
-    for (int i = 0; i < MAX_EXTREF; ++i) {
+    for (int i = 0; i < extRefCount; ++i) {
         if ((strcmp(extRef[i].symbol, symbol) == 0) && (extRef[i].sec == section)) {
             return i;
         }
@@ -151,7 +151,7 @@ int search_extR_index(uchar *symbol, int section) {
 }
 
 int search_extDtab(uchar *symbol) {
-    for (int i = 0; i < MAX_EXTDEF; ++i) {
+    for (int i = 0; i < extDefCount; ++i) {
         if (strcmp(extDef[i].symbol, symbol) == 0) {
             return  extDef[i].addr;
         }
