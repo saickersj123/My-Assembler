@@ -2,6 +2,7 @@
 #include <stdlib.h>	
 #include <string.h>
 #include <ctype.h>
+
 /* 
  * my_assembler 함수를 위한 변수 선언 및 매크로를 담고 있는 헤더 파일이다. 
  * 
@@ -102,7 +103,7 @@ void make_objectcode_output(uchar *file_name, uchar *list_name); // 파일 output.
 
 //Extra functions, variables
 void write_intermediate_file(uchar *str, int locctr);
-void add_to_symtab(const uchar *label, int loc, int is_equ, int sec);
+void add_to_symtab(const uchar *label, int loc, int is_equ, int secton);
 int search_symtab(uchar *symbol, int section);
 int tok_search_opcode(uchar *str);
 int init_token_table(void);
@@ -151,7 +152,6 @@ static int extRefCount;
 // Define a counter for object code records
 FILE *object_code_file;
 FILE *listing_file;
-static int operand_address;
 
 // Define an array to store object code
 int object_code[20];
