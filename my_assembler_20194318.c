@@ -1,9 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>	
-#include <string.h>
-#include <ctype.h>
 #include "my_assembler_20194318.h"
-
 
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec) {
 

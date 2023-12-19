@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>	
+#include <string.h>
+#include <ctype.h>
 /* 
  * my_assembler 함수를 위한 변수 선언 및 매크로를 담고 있는 헤더 파일이다. 
  * 
@@ -96,12 +100,33 @@ void make_symtab_output(uchar *file_name);
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name, uchar *list_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
 
-//From this line, they are my own functions, variables, ADT
+//Extra functions, variables
 void write_intermediate_file(uchar *str, int locctr);
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec);
 int search_symtab(uchar *symbol, int section);
 int tok_search_opcode(uchar *str);
 int init_token_table(void);
+int write_listing_line(int format);
+void write_text_record(void);
+int evaluate_expression(uchar *expr);
+int search_literal(uchar *operand);
+int search_literaladdr(uchar *operand);
+int calculate_byte_length(uchar *operand);
+int search_extRtab(uchar *symbol, int section);
+int search_extR_index(uchar *symbol, int section);
+int search_extDtab(uchar *symbol);
+void handle_extdef(uchar *symbol);
+void handle_extref(uchar *symbol, int section);
+void handle_equ_directive(uchar *label, uchar *operand);
+void handle_ltorg_directive(void);
+int getREGnum(uchar *register_name);
+int generate_object_code(int format);
+int hexstr2dec(char H);
+int write_literal(void);
+int handle_pass2(void);
+void write_text_record(void);
+int write_listing_line(int format);
+
 typedef struct {
     uchar name[20];
     int leng;
@@ -114,8 +139,6 @@ typedef struct {
 LT LTtab[MAX_LITERALS];
 static int LT_num;
 int current_pool;
-// Function to evaluate an arithmetic expression
-static int evaluate_expression(uchar *expr);
 
 #define MAX_EXTDEF 10 
 #define MAX_EXTREF 10
@@ -125,24 +148,19 @@ symbol extRef[MAX_EXTDEF];
 static int extDefCount;
 static int extRefCount;
 
-
-#define MAX_OBJ_CODES 1000
-#define MAX_MOD_RECORDS 1000
-#define MAX_TEXT_RECORD_LENGTH 1000
-
 // Define a counter for object code records
 FILE *object_code_file;
 FILE *listing_file;
 static int operand_address;
-#define LTORG_LENGTH 30
 
 // Define an array to store object code
 int object_code[20];
 uchar text_record[70];
-static int text_record_start;
-static int text_record_ctr;
+int text_record_start;
+int text_record_ctr;
+
 // Define a counter for modification records
-static int mod_record_count;
+int mod_record_count;
 int mod_last;
 uchar mod_record[30][20];
 int is_lt;
@@ -152,5 +170,3 @@ int BASEADDR;
 int FEI;
 uchar HEXTAB[]= {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 uchar *texp[10];
-int write_listing_line(int format);
-void write_text_record();
