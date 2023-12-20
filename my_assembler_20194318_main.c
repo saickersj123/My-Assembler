@@ -22,12 +22,5 @@ int main(void){
     printf("\nPass 2 Ended.\n");
     //print success message
     printf("\nAssembler successfully completed both passes.\n");
-
-    for(int i=0; i < extRefCount; ++i){
-        printf("ExtRef Name: %s Addr: %04X Sec: %d\n",extRef[i].symbol, extRef[i].addr, extRef[i].sec);
-    }
-    for(int i=0; i < extDefCount; ++i){
-        printf("ExtDef Name: %s Addr: %04X\n",extDef[i].symbol, extDef[i].addr);
-    }
     return 0;
 }    

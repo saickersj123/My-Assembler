@@ -57,16 +57,6 @@ int search_literal(uchar *operand) {
     return -1;
 }
 
-int search_literaladdr(uchar *operand) {
-    for (int i = 0; i < LT_num; ++i) {
-        if (strcmp(LTtab[i].name, operand) == 0) {
-            // Literal found, return itext_record_start index
-            return LTtab[i].addr;
-        }
-    }
-    // Literal not found
-    return -1;
-}
 int calculate_byte_length(uchar *operand) {
         if (operand[0] == '=') {
             if (operand[1] == 'C' || operand[1] == 'c') {
@@ -116,15 +106,6 @@ int calculate_byte_length(uchar *operand) {
 int search_symtab(uchar *symbol, int section) {
     for (int i = 0; i < MAX_LINES; ++i) {
         if ((strcmp(sym_table[i].symbol, symbol) == 0) && (sym_table[i].sec == section)){
-            return  sym_table[i].addr; // Symbol found, return itext_record_start index
-        }
-    }
-    return -1; // Symbol not found
-}
-
-int search_gsymtab(uchar *symbol) {
-    for (int i = 0; i < MAX_LINES; ++i) {
-        if ((strcmp(sym_table[i].symbol, symbol) == 0)){
             return  sym_table[i].addr; // Symbol found, return itext_record_start index
         }
     }
@@ -1058,7 +1039,7 @@ int hexstr2dec(char H)
   return (-1);
 }
 
-int write_literal()
+int write_literal(void)
 {
     int n, len=0;
     is_lt = 0;
@@ -1096,7 +1077,7 @@ int write_literal()
   return(len);
 }
 
-int handlepass2(){
+int handlepass2(void){
   int n = 0;
   token *ct = token_table[token_line];
   token *nt = token_table[token_line+1];
@@ -1307,7 +1288,7 @@ int handlepass2(){
 }
 
 // Helper function to write a Text record to the object program
-void write_text_record() {
+void write_text_record(void) {
     if(text_record_ctr > 0){
     fprintf(object_code_file, "T%06X%02X%s\n", text_record_start, text_record_ctr/2, text_record);
     text_record_ctr = 0;
@@ -1397,12 +1378,6 @@ int write_listing_line(int format) {
       fprintf(listing_file,"%02X%02X%02X%02X\n", object_code[0], object_code[1], object_code[2], object_code[3]);
       break;
   }
-}
-
-
-// Function to initialize a Text record
-void initialize_text_record() {
-    text_record[0] = '\0';
 }
 
 int assem_pass2()

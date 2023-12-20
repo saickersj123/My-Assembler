@@ -99,6 +99,8 @@ int getREGnum(uchar *register_name);
 int generate_object_code(int format);
 int write_listing_line(int format);
 void write_text_record(void);
+int write_literal(void);
+int handlepass2(void);
 
 // Define the structure for the program section
 typedef struct {
