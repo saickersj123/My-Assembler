@@ -149,7 +149,7 @@ int search_extR_index(uchar *symbol, int section) {
             return i;
         }
         else{
-            printf("Error: Undefined external reference - %s\n", symbol);
+            printf("Error: Undefined external reference(index) - %s\n", symbol);
         }
     }
     return -1;
@@ -444,6 +444,7 @@ void handle_extref(uchar *symbol, int section) {
     }
     // Add the symbol to the EXTREF table
     extRef[extRefCount].sec = section;
+    extRef[extRefCount].addr = locctr;
     strcpy(extRef[extRefCount].symbol, symbol);
     extRefCount++;
 }
@@ -595,7 +596,7 @@ static int assem_pass1(void) {
                     // Process EXTREF directive
                     for (int i = 0; i < MAX_OPERAND &&
                     token_table[token_line]->operand[i][0] != '\0'; i++) {
-                    handle_extref(token_table[token_line]->operand[i],sec);
+                    handle_extref(token_table[token_line]->operand[i], sec);
                     } 
             }
             // Add the label to the symbol table
@@ -758,7 +759,7 @@ void write_intermediate_file(uchar *str, int locctr)
             return;
         }
     }
-
+    
     fprintf(intermediate_file, "%04X %s\n", locctr, str);
     fclose(intermediate_file);
 }
@@ -768,8 +769,15 @@ int evaluate_expression(uchar *expr) {
     for(int i; i<10; i++){
       texp[i] = '\0';
     }
+    sign = '\0';
+    if(strchr(expr,'+')){
+        sign = '+';
+    } else if((strchr(expr,'-'))) {
+        sign = '-';
+    }
+
     // Tokenize the expression based on the '-' operator
-    uchar *token = strtok(expr, "-");
+    uchar *token = strtok(expr, "-+");
     texp[0] = token;
     // Parse the first operand (BUFEND)
     int operand1 = -1;
@@ -803,8 +811,11 @@ int evaluate_expression(uchar *expr) {
         return -1;
     }
 
-    // Return the result of the subtraction operation
-    return operand1 - operand2;
+    if(sign == '+'){
+        return operand1 + operand2;
+    } else if (sign == '-'){
+        return operand1 - operand2;
+    }
 }
 
 void make_objectcode_output(uchar *file_name, uchar *list_name) {
@@ -1079,7 +1090,7 @@ int write_literal()
     }
     is_lt++;
     write_listing_line(len);
-    printf("\n%d\n", len);
+    //printf("\n%d\n", len);
     is_lt = 0;
   } // for
   return(len);
@@ -1122,6 +1133,11 @@ int handlepass2(){
 
             // 아래 문장은 복수개의 기호(MAXLEN WORD BUFEND-BUFFER 같은 문장)을 처리하기 위해...
             if (strchr(ct->operand[0], '+') || strchr(ct->operand[0], '-')) {
+                if(strchr(ct->operand[0], '+')){
+                    sign2 = '+';
+                } else if(strchr(ct->operand[0], '-')){
+                    sign2 = '-';
+                }
                 int operand_index = 0;
                 uchar *optok = strtok(ct->operand[0], "+-");
                 while(optok != NULL) {
@@ -1150,11 +1166,15 @@ int handlepass2(){
                     }
 
                     // 외부 참조일 경우 수정 레코드(Modification Record)에 추가
-                    sprintf(mod_record[mod_record_count], "M%06X06%c%-6s\n", ct->addr - csect_start_address, '-', ct->operand[1]);
+                    sprintf(mod_record[mod_record_count], "M%06X06%c%-6s\n", ct->addr - csect_start_address, sign2, ct->operand[1]);
                     mod_record_count ++;
                 }
+                if(sign2 == '+'){
+                    W3 = W3 + W4;
+                }
+                if(sign2 == '-'){
                     W3 = W3 - W4;
-
+                }
             }
           
             // 상수 값을 메모리에 쓰기
@@ -1251,9 +1271,7 @@ int handlepass2(){
     else if (strcmp(ct->operator, "EXTDEF") == 0) // 외부 정의(external definition)
     {
         for (int i = 0; i < MAX_OPERAND && ct->operand[i][0] != '\0'; ++i) {
-            strcpy(extDef[extDefCount].symbol, ct->operand[i]);
-            extDef[extDefCount].addr = search_symtab(ct->operand[i], sec);
-            extDefCount++;
+            handle_extdef(ct->operand[i]);
         }
         fprintf(object_code_file, "D"); // 정의 레코드(define record)
         for(int i = 0; i < MAX_OPERAND && ct->operand[i][0] != '\0'; ++i) {

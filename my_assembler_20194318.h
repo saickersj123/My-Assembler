@@ -65,23 +65,8 @@ struct symbol_unit
 typedef struct symbol_unit symbol;
 symbol sym_table[MAX_LINES];
 static int sym_index;
-
 static int locctr; // loc값 
-static int starting_address;
-static int program_length;
-static int sec;
 
-// Define the structure for the program section
-typedef struct {
-    int sec;             // Section number
-	//int locctr;          // Location counter
-    int program_length;  // Program length
-} csect;
-#define MAX_CSECT 10
-csect csect_table[MAX_CSECT];
-//--------------
-static int is_first_write = 1;
-static int first_write = 1;
 static uchar *input_file; // 입력 파일 input.txt
 static uchar *output_file;// 출력 파일 output.txt
 
@@ -96,12 +81,36 @@ void make_symtab_output(uchar *file_name);
 static int assem_pass2(void); // SIC/XE Pass2 make_objectcode_output을 포함
 void make_objectcode_output(uchar *file_name, uchar *list_name); // 파일 output.txt에 입력된 명령어의 오브젝트 코드 생성
 
-//From this line, they are my own functions, variables, ADT
+//these are extra functions, variables
 void write_intermediate_file(uchar *str, int locctr);
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec);
 int search_symtab(uchar *symbol, int section);
 int tok_search_opcode(uchar *str);
 int init_token_table(void);
+int evaluate_expression(uchar *expr);
+int search_literal(uchar *operand);
+int calculate_byte_length(uchar *operand);
+int search_extRtab(uchar *symbol, int section);
+int search_extDtab(uchar *symbol);
+void handle_extdef(uchar *symbol);
+void handle_extref(uchar *symbol, int section);
+void handle_equ_directive(uchar *label, uchar *operand);
+void handle_ltorg_directive(void);
+int getREGnum(uchar *register_name);
+int generate_object_code(int format);
+int write_listing_line(int format);
+void write_text_record();
+
+// Define the structure for the program section
+typedef struct {
+    int sec;             // Section number
+	//int locctr;          // Location counter
+    int program_length;  // Program length
+} csect;
+#define MAX_CSECT 10
+csect csect_table[MAX_CSECT];
+//--------------
+
 typedef struct {
     uchar name[20];
     int leng;
@@ -112,45 +121,38 @@ typedef struct {
 // Maximum number of literals (adjust as needed)
 #define MAX_LITERALS 100
 LT LTtab[MAX_LITERALS];
-static int LT_num;
+int LT_num;
 int current_pool;
-// Function to evaluate an arithmetic expression
-static int evaluate_expression(uchar *expr);
 
 #define MAX_EXTDEF 10 
 #define MAX_EXTREF 10
-
 symbol extDef[MAX_EXTDEF];
 symbol extRef[MAX_EXTDEF];
-static int extDefCount;
-static int extRefCount;
-
-
-#define MAX_OBJ_CODES 1000
-#define MAX_MOD_RECORDS 1000
-#define MAX_TEXT_RECORD_LENGTH 1000
+int extDefCount;
+int extRefCount;
 
 // Define a counter for object code records
 FILE *object_code_file;
 FILE *listing_file;
-static int operand_address;
-#define LTORG_LENGTH 30
 
-// Define an array to store object code
+static int starting_address;
+static int sec;
 int object_code[20];
-uchar text_record[70];
-static int text_record_start;
-static int text_record_ctr;
-// Define a counter for modification records
-static int mod_record_count;
+int text_record_start;
+int text_record_ctr;
+int mod_record_count;
 int mod_last;
-uchar mod_record[30][20];
 int is_lt;
 int csect_start_address;
 int csect_length;
 int BASEADDR;
 int FEI;
+int is_first_write = 1; //to check if it is first write for intermediate file
+int first_write = 1; //to check if if it is first wirte for object / list
+
+uchar sign; //sign for expressions
+uchar sign2;
+uchar text_record[70];
+uchar mod_record[30][20];
 uchar HEXTAB[]= {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 uchar *texp[10];
-int write_listing_line(int format);
-void write_text_record();
