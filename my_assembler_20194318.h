@@ -98,7 +98,7 @@ void handle_ltorg_directive(void);
 int getREGnum(uchar *register_name);
 int generate_object_code(int format);
 int write_listing_line(int format);
-void write_text_record();
+void write_text_record(void);
 
 // Define the structure for the program section
 typedef struct {
