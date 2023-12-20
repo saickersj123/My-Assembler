@@ -42,7 +42,6 @@ struct token_unit
 	uchar operand[MAX_OPERAND][20];
 	uchar comment[100];
 	int addr;
-	int ta;
 };
 
 
