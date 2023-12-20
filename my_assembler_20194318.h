@@ -146,8 +146,8 @@ int csect_start_address;
 int csect_length;
 int BASEADDR;
 int FEI;
-int is_first_write = 1; //to check if it is first write for intermediate file
-int first_write = 1; //to check if if it is first wirte for object / list
+int is_first_write = 1; //to check first write for intermediate file
+int first_write = 1; //to check first wirte for object / list
 
 uchar sign; //sign for expressions
 uchar sign2;
