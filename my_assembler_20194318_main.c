@@ -5,7 +5,6 @@ int main(void){
         fprintf(stderr, "Assembler initialization failed.\n");
         return 1;
     }
-
     //Pass 1 ผ๖วเ
     printf("\nPass 1 started.\n");
     if (assem_pass1() != 0) {
