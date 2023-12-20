@@ -77,7 +77,7 @@ int calculate_byte_length(uchar *operand) {
             fprintf(stderr, "Error: Undefined literal - %s\n", operand);
             return -1;
         }
-    }
+    } 
     // Handle BYTE literals with C or X prefixes
     if (operand[0] == 'C' || operand[0] == 'c') {
         // Count the characters between single quotes
@@ -1373,7 +1373,7 @@ int write_listing_line(int format) {
 
 // Function to perform pass 2 of the assembler
 int assem_pass2() {
-    // Initialize variables and file pointers
+    // Initialize variables
     line_num = 0;
     LT_num = 0;
     token_line = 0;

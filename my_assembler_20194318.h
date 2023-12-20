@@ -150,10 +150,10 @@ int text_record_start;
 int text_record_ctr;
 int mod_record_count;
 int mod_last; // Track last record count 
-int is_lt; // Check if it is LT
+int is_lt; // Flag to check if it is LT
 int BASEADDR; // Base register address
-int is_first_write = 1; //to check first write for intermediate file
-int first_write = 1; //to check first wirte for object / list
+int is_first_write = 1; //Flag to check first write for intermediate file
+int first_write = 1; //Flag to check first wirte for object / list
 
 uchar sign; //sign for expressions
 uchar sign2;
