@@ -20,7 +20,8 @@ int main(void){
     }
     printf("\nPass 2 Ended.\n");
     //print success message
-    printf("\nAssembler successfully completed both passes.\n");
+    printf("\nAssembler successfully completed both passes.\n\n");
+
     char buf[100];
     FILE *input_obj = fopen("objectprogram.txt", "r");
     while(fgets(buf,sizeof(buf),input_obj)!=NULL){
