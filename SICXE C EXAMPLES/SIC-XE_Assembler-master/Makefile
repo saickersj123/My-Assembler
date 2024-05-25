@@ -1,9 +1,0 @@
-CC=gcc
-TARGET = 20161623.out
-
-$(TARGET) : 20161623.o
-	$(CC) -o $(TARGET) 20161623.c 20161623.h
-	
-clean:
-	rm 20161623.out
-	rm 20161623.o
