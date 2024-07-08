@@ -172,7 +172,7 @@ int init_my_assembler(void){
     }
 
     // Initialize input.txt
-    if (init_input_file("input.txt") == -1) {
+    if (init_input_file("input.data") == -1) {
         fprintf(stderr, "Error: Source Code Initiation Failed\n");
         return -1;
     }
