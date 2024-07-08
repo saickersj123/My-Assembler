@@ -89,7 +89,7 @@ SIC/XE Assembler implementation
 ### Prerequisites
 
 * Put your SIC/XE instructions on inst.data
-* Instruction sample
+* Instructions Sample
   ```sh
   ADD	   	3	18
   ADDF	3	58
@@ -163,7 +163,7 @@ SIC/XE Assembler implementation
   WORD	0	0D
   ```
 * Put your SIX/XE inputs on input.data
-* Input Example
+* Inputs Sample
   ```sh
   COPY	START	0	
 	EXTDEF	BUFFER,BUFEND,LENGTH
