@@ -1,4 +1,4 @@
-#include "my_assembler_20194318.c"
+#include "my_assembler.c"
 int main(void){
     // √ ±‚»≠
     if (init_my_assembler() != 0) {

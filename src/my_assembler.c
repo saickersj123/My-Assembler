@@ -2,7 +2,7 @@
 #include <stdlib.h>	
 #include <string.h>
 #include <ctype.h>
-#include "my_assembler_20194318.h"
+#include "my_assembler.h"
 
 
 void add_to_symtab(const uchar *label, int loc, int is_equ, int sec) {
