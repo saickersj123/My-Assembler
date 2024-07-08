@@ -34,7 +34,7 @@
 <h3 align="center">My Assembler</h3>
 
   <p align="center">
-    SIC/XE Assembler implementation
+    SIC/XE Assembler Implementation
   </p>
 </div>
 
