@@ -76,7 +76,7 @@ SIC/XE Assembler implementation
 
 ### Built With
 
-* [![C][C]][MingW-url]
+[![C][C]][MingW-url]
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -88,9 +88,8 @@ SIC/XE Assembler implementation
 
 ### Prerequisites
 
-Put your SIC/XE instructions on inst.data
-Put your SIX/XE inputs on input.data
-* Instruction Example
+* Put your SIC/XE instructions on inst.data
+* Instruction sample
   ```sh
   ADD	   	3	18
   ADDF	3	58
@@ -163,6 +162,7 @@ Put your SIX/XE inputs on input.data
   WD	    3	DC
   WORD	0	0D
   ```
+* Put your SIX/XE inputs on input.data
 * Input Example
   ```sh
   COPY	START	0	
