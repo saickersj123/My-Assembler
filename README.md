@@ -162,7 +162,7 @@ SIC/XE Assembler implementation
   WD	    3	DC
   WORD	0	0D
   ```
-* Put your SIX/XE inputs on input.data
+* Put your SIC/XE inputs on input.data
 * Inputs Sample
   ```sh
   COPY	START	0	
